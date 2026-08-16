@@ -343,26 +343,33 @@ class WeekView extends GetView<WeekController> {
           // 2. Liste verticale des 7 jours (Lundi à Dimanche)
           Expanded(
             child: Obx(
-              () => ListView.builder(
-                padding: const EdgeInsets.only(top: 4, bottom: 88),
-                itemCount: 7,
-                itemBuilder: (context, index) {
-                  final dayOfWeek = index + 1; // 1 = Lundi ... 7 = Dimanche
-                  final dayDate = controller.getDateForDay(dayOfWeek);
-                  final isCurrentDay = controller.isToday(dayDate);
-                  final activities = controller.getActivitiesForDay(dayOfWeek);
-                  final unplannedTasks = controller.getUnplannedTasksForDate(dayDate);
+              () {
+                // Access reactive variables here to register them with Obx
+                controller.weekOffset.value;
+                controller.activitiesByDay.keys;
+                controller.allUnplannedTasks.length;
 
-                  return _DayCard(
-                    dayOfWeek: dayOfWeek,
-                    dayDate: dayDate,
-                    isToday: isCurrentDay,
-                    activities: activities,
-                    unplannedTasks: unplannedTasks,
-                    onTap: () => controller.goToDay(dayOfWeek, dayDate),
-                  );
-                },
-              ),
+                return ListView.builder(
+                  padding: const EdgeInsets.only(top: 4, bottom: 88),
+                  itemCount: 7,
+                  itemBuilder: (context, index) {
+                    final dayOfWeek = index + 1; // 1 = Lundi ... 7 = Dimanche
+                    final dayDate = controller.getDateForDay(dayOfWeek);
+                    final isCurrentDay = controller.isToday(dayDate);
+                    final activities = controller.getActivitiesForDay(dayOfWeek);
+                    final unplannedTasks = controller.getUnplannedTasksForDate(dayDate);
+
+                    return _DayCard(
+                      dayOfWeek: dayOfWeek,
+                      dayDate: dayDate,
+                      isToday: isCurrentDay,
+                      activities: activities,
+                      unplannedTasks: unplannedTasks,
+                      onTap: () => controller.goToDay(dayOfWeek, dayDate),
+                    );
+                  },
+                );
+              },
             ),
           ),
         ],
