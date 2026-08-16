@@ -1,9 +1,11 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import '../models/activity.dart';
-import '../models/recurrence_rule.dart';
 import '../services/recurrence_engine.dart';
 
 class NotificationService {
@@ -16,22 +18,32 @@ class NotificationService {
 
   bool _isInitialized = false;
 
-  /// Initialisation du plugin de notifications locales
+  /// Nombre de jours de la fenêtre glissante pour la planification d'alarmes futures
+  static const int slidingWindowDays = 30;
+
+  /// Initialisation du plugin de notifications locales et du fuseau horaire réel
   Future<void> initialize() async {
     if (_isInitialized) return;
 
-    // Initialisation des fuseaux horaires pour la planification
+    // 1. Initialisation de la base de données des fuseaux horaires
     tz.initializeTimeZones();
-    // Utilise le fuseau horaire local par défaut
+
+    // 2. Détection dynamique du fuseau horaire local de l'appareil
     try {
-      tz.setLocalLocation(tz.getLocation('Europe/Paris'));
-    } catch (_) {
-      // Si la localisation spécifique échoue, repli sur UTC
-      tz.setLocalLocation(tz.UTC);
+      final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(currentTimeZone));
+      debugPrint('Fuseau horaire configuré dynamiquement : $currentTimeZone');
+    } catch (e) {
+      debugPrint('Erreur lors de la détection du fuseau horaire ($e), repli Europe/Paris ou UTC');
+      try {
+        tz.setLocalLocation(tz.getLocation('Europe/Paris'));
+      } catch (_) {
+        tz.setLocalLocation(tz.UTC);
+      }
     }
 
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    // 3. Paramètres d'initialisation pour Android et iOS
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
 
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: false,
@@ -51,10 +63,29 @@ class NotificationService {
       },
     );
 
+    // 4. Création du canal de notification haute priorité sur Android
+    if (Platform.isAndroid) {
+      final androidImpl = _notificationsPlugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      if (androidImpl != null) {
+        const channel = AndroidNotificationChannel(
+          'activities_reminder_channel_v2',
+          'Rappels d\'activités & Alarmes exactes',
+          description:
+              'Notifications et alarmes exactes déclenchées à la minute près avant vos activités',
+          importance: Importance.max,
+          playSound: true,
+          enableVibration: true,
+          enableLights: true,
+        );
+        await androidImpl.createNotificationChannel(channel);
+      }
+    }
+
     _isInitialized = true;
   }
 
-  /// Demande des permissions de notification pour Android 13+ et iOS
+  /// Demande des permissions de base (POST_NOTIFICATIONS pour Android 13+)
   Future<bool> requestPermissions() async {
     bool granted = true;
 
@@ -83,30 +114,69 @@ class NotificationService {
     return granted;
   }
 
-  /// Génère un identifiant entier 32-bit unique et déterministe à partir de l'UUID
-  int _getNotificationId(String activityId) {
-    return activityId.hashCode.abs() % 2147483647;
+  /// Vérifie si la permission d'alarme exacte est accordée (Android 12+ / API 31+)
+  Future<bool> canScheduleExactAlarms() async {
+    if (!Platform.isAndroid) return true;
+    final androidImpl = _notificationsPlugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    if (androidImpl != null) {
+      return await androidImpl.canScheduleExactNotifications() ?? false;
+    }
+    return true;
   }
 
-  /// Détails de notification pour Android et iOS
+  /// Demande à l'utilisateur d'activer les alarmes exactes dans les réglages système
+  Future<void> requestExactAlarmsPermission() async {
+    if (!Platform.isAndroid) return;
+    final androidImpl = _notificationsPlugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    if (androidImpl != null) {
+      await androidImpl.requestExactAlarmsPermission();
+    }
+  }
+
+  /// Vérifie si l'optimisation de batterie est ignorée pour l'application
+  Future<bool> isBatteryOptimizationIgnored() async {
+    if (!Platform.isAndroid) return true;
+    return await Permission.ignoreBatteryOptimizations.isGranted;
+  }
+
+  /// Demande l'exemption d'optimisation de batterie
+  Future<bool> requestIgnoreBatteryOptimizations() async {
+    if (!Platform.isAndroid) return true;
+    final status = await Permission.ignoreBatteryOptimizations.request();
+    return status.isGranted;
+  }
+
+  /// Génère un identifiant entier 32-bit unique pour une occurrence d'activité
+  int _getOccurrenceNotificationId(String activityId, DateTime date) {
+    final key = '$activityId-${date.year}-${date.month}-${date.day}';
+    return key.hashCode.abs() % 2147483647;
+  }
+
+  /// Détails de notification Android et iOS avec son, vibration et alarme Doze
   NotificationDetails _getNotificationDetails(Activity activity) {
     final androidDetails = AndroidNotificationDetails(
-      'activities_reminder_channel',
-      'Rappels d\'activités',
+      'activities_reminder_channel_v2',
+      'Rappels d\'activités & Alarmes exactes',
       channelDescription:
-          'Notifications de rappel avant vos cours et activités programmées',
-      importance: Importance.high,
-      priority: Priority.high,
+          'Notifications et alarmes exactes déclenchées à la minute près avant vos activités',
+      importance: Importance.max,
+      priority: Priority.max,
       icon: '@mipmap/ic_launcher',
       color: activity.category.color,
       playSound: true,
       enableVibration: true,
+      enableLights: true,
+      fullScreenIntent: false,
+      category: AndroidNotificationCategory.reminder,
     );
 
     const iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      interruptionLevel: InterruptionLevel.timeSensitive,
     );
 
     return NotificationDetails(
@@ -115,96 +185,116 @@ class NotificationService {
     );
   }
 
-  /// Planifie une notification locale pour une activité
+  /// Planifie les notifications d'une activité pour toute la fenêtre glissante (30 jours)
+  /// en prenant fidèlement en compte toutes les occurrences et exceptions de récurrence.
   Future<void> scheduleActivityNotification(Activity activity) async {
-    if (activity.reminderMinutesBefore == null) {
-      // Aucun rappel configuré : on s'assure d'annuler une éventuelle notification résiduelle
-      await cancelActivityNotification(activity.id);
-      return;
-    }
-
-    // Annule d'abord toute notification existante pour cette activité pour éviter les doublons
+    // 1. Annulation préalable de toutes les notifications planifiées pour cette activité
     await cancelActivityNotification(activity.id);
 
-    final notificationId = _getNotificationId(activity.id);
-
-    // Calcul de l'heure exacte de la notification (début - X minutes)
-    final reminderMinutes = activity.reminderMinutesBefore!;
-    final totalStartMinutes = activity.startHour * 60 + activity.startMinute;
-    int scheduledTotalMinutes = totalStartMinutes - reminderMinutes;
-    int dayOffset = 0;
-
-    if (scheduledTotalMinutes < 0) {
-      // Le rappel tombe la veille
-      scheduledTotalMinutes += 24 * 60;
-      dayOffset = -1;
-    }
-
-    final scheduledHour = scheduledTotalMinutes ~/ 60;
-    final scheduledMinute = scheduledTotalMinutes % 60;
-
-    // Calcul de la prochaine occurrence réelle selon le moteur de récurrence
-    final scheduledDate = _nextOccurrenceForActivity(
-      activity,
-      scheduledHour,
-      scheduledMinute,
-      dayOffset,
-    );
-
-    if (scheduledDate == null) {
-      debugPrint('Aucune occurrence future pour "${activity.title}".');
+    // 2. Si aucun rappel configuré, s'arrêter là
+    if (activity.reminderMinutesBefore == null) {
       return;
     }
 
-    final body = reminderMinutes == 0
-        ? 'Votre activité commence maintenant !'
-        : 'Débute dans $reminderMinutes min (${activity.timeRangeFormatted})'
-            '${activity.location != null ? ' - 📍 ${activity.location}' : ''}';
+    final reminderMinutes = activity.reminderMinutesBefore!;
+    final now = tz.TZDateTime.now(tz.local);
+    final today = DateTime(now.year, now.month, now.day);
+    final toDate = today.add(const Duration(days: slidingWindowDays));
 
-    DateTimeComponents? matchComponents;
-    if (activity.isRecurring) {
-      final rule = activity.recurrenceRule!;
-      if (rule.frequency == RecurrenceFrequency.daily && rule.interval == 1 && rule.endType == RecurrenceEndType.never) {
-        matchComponents = DateTimeComponents.time;
-      } else if (rule.frequency == RecurrenceFrequency.weekly && rule.interval == 1 && rule.weekDaysList.length <= 1 && rule.endType == RecurrenceEndType.never) {
-        matchComponents = DateTimeComponents.dayOfWeekAndTime;
+    // 3. Calculer toutes les dates d'occurrences effectives (avec exceptions décalées / annulées / détachées)
+    final occurrenceDates = RecurrenceEngine.generateOccurrences(
+      startDate: activity.startDate,
+      rule: activity.recurrenceRule,
+      exceptions: activity.exceptions,
+      fromDate: today,
+      toDate: toDate,
+    );
+
+    for (final occDate in occurrenceDates) {
+      // Obtenir l'activité effective pour cette date (horaires potentiellement décalés)
+      final effectiveActivity = RecurrenceEngine.getOccurrenceForDate(
+        activity: activity,
+        targetDate: occDate,
+      ) ?? activity;
+
+      final startMinutes = effectiveActivity.startHour * 60 + effectiveActivity.startMinute;
+      int scheduledTotalMinutes = startMinutes - reminderMinutes;
+      int dayOffset = 0;
+
+      if (scheduledTotalMinutes < 0) {
+        // Le rappel tombe la veille
+        scheduledTotalMinutes += 24 * 60;
+        dayOffset = -1;
+      }
+
+      final scheduledHour = scheduledTotalMinutes ~/ 60;
+      final scheduledMinute = scheduledTotalMinutes % 60;
+      final notifTargetDate = occDate.add(Duration(days: dayOffset));
+
+      final scheduledTZ = tz.TZDateTime(
+        tz.local,
+        notifTargetDate.year,
+        notifTargetDate.month,
+        notifTargetDate.day,
+        scheduledHour,
+        scheduledMinute,
+      );
+
+      // Programmer l'alarme uniquement si l'horaire est situé dans le futur
+      if (scheduledTZ.isAfter(now)) {
+        final notifId = _getOccurrenceNotificationId(activity.id, occDate);
+        final body = reminderMinutes == 0
+            ? 'Votre activité commence maintenant !'
+            : (reminderMinutes == 1
+                ? 'Débute dans 1 minute (${effectiveActivity.timeRangeFormatted})'
+                : 'Débute dans $reminderMinutes min (${effectiveActivity.timeRangeFormatted})')
+            + (effectiveActivity.location != null ? ' - 📍 ${effectiveActivity.location}' : '');
+
+        try {
+          await _notificationsPlugin.zonedSchedule(
+            notifId,
+            '⏰ ${effectiveActivity.title}',
+            body,
+            scheduledTZ,
+            _getNotificationDetails(effectiveActivity),
+            androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+            uiLocalNotificationDateInterpretation:
+                UILocalNotificationDateInterpretation.absoluteTime,
+            payload: activity.id,
+          );
+          debugPrint(
+            'Alarme exacte planifiée pour "${effectiveActivity.title}" le ${notifTargetDate.day}/${notifTargetDate.month} à ${scheduledHour}h${scheduledMinute.toString().padLeft(2, '0')}',
+          );
+        } catch (e) {
+          debugPrint('Erreur zonedSchedule pour "${effectiveActivity.title}": $e');
+        }
       }
     }
+  }
 
-    try {
-      await _notificationsPlugin.zonedSchedule(
-        notificationId,
-        '⏰ ${activity.title}',
-        body,
-        scheduledDate,
-        _getNotificationDetails(activity),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: matchComponents,
-        payload: activity.id,
-      );
-      debugPrint(
-        'Notification planifiée pour "${activity.title}" le ${scheduledDate.day}/${scheduledDate.month}/${scheduledDate.year} à ${scheduledHour}h${scheduledMinute.toString().padLeft(2, '0')}',
-      );
-    } catch (e) {
-      debugPrint('Erreur lors de la planification de notification: $e');
+  /// Annule toutes les alarmes de la fenêtre glissante pour une activité donnée
+  Future<void> cancelActivityNotification(String activityId) async {
+    final now = DateTime.now();
+    // Parcourt les 60 jours avant et après pour nettoyer les notifications enregistrées
+    for (int i = -10; i <= slidingWindowDays + 10; i++) {
+      final date = now.add(Duration(days: i));
+      final notifId = _getOccurrenceNotificationId(activityId, date);
+      await _notificationsPlugin.cancel(notifId);
     }
   }
 
-  /// Annule la notification liée à une activité
-  Future<void> cancelActivityNotification(String activityId) async {
-    final notificationId = _getNotificationId(activityId);
-    await _notificationsPlugin.cancel(notificationId);
-    debugPrint('Notification annulée pour l\'activité ID: $activityId');
+  /// Annule une alarme pour une occurrence précise d'une activité
+  Future<void> cancelOccurrenceNotification(String activityId, DateTime date) async {
+    final notifId = _getOccurrenceNotificationId(activityId, date);
+    await _notificationsPlugin.cancel(notifId);
   }
 
-  /// Annule toutes les notifications
+  /// Annule toutes les notifications de l'application
   Future<void> cancelAllNotifications() async {
     await _notificationsPlugin.cancelAll();
   }
 
-  /// Replanifie les notifications pour toute une liste d'activités
+  /// Replanifie l'intégralité des notifications de la fenêtre glissante pour toutes les activités
   Future<void> rescheduleAllActivities(List<Activity> activities) async {
     await cancelAllNotifications();
     for (final activity in activities) {
@@ -212,40 +302,5 @@ class NotificationService {
         await scheduleActivityNotification(activity);
       }
     }
-  }
-
-  /// Calcule la prochaine occurrence pour une activité selon le moteur de récurrence
-  tz.TZDateTime? _nextOccurrenceForActivity(
-    Activity activity,
-    int scheduledHour,
-    int scheduledMinute,
-    int dayOffset,
-  ) {
-    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
-    final today = DateTime(now.year, now.month, now.day);
-
-    for (int i = 0; i < 365; i++) {
-      final candidateDate = today.add(Duration(days: i));
-      if (RecurrenceEngine.occursOnDate(
-        startDate: activity.startDate,
-        rule: activity.recurrenceRule,
-        targetDate: candidateDate,
-      )) {
-        final notifDate = candidateDate.add(Duration(days: dayOffset));
-        final scheduledTZ = tz.TZDateTime(
-          tz.local,
-          notifDate.year,
-          notifDate.month,
-          notifDate.day,
-          scheduledHour,
-          scheduledMinute,
-        );
-
-        if (scheduledTZ.isAfter(now)) {
-          return scheduledTZ;
-        }
-      }
-    }
-    return null;
   }
 }

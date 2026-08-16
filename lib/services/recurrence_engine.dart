@@ -1,9 +1,14 @@
+import '../models/activity.dart';
+import '../models/recurrence_exception.dart';
 import '../models/recurrence_rule.dart';
 
-/// Moteur de calcul et d'évaluation des règles de récurrence temporelle
+/// Moteur de calcul et d'évaluation des règles de récurrence temporelle et d'application des exceptions
 class RecurrenceEngine {
-  /// Détermine si un événement avec une `startDate` et une `rule` optionnelle se produit à la date `targetDate`.
-  static bool occursOnDate({
+  static bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  /// Évalue si la règle de base (brute) produit une occurrence à `targetDate`.
+  static bool rawOccursOnDate({
     required DateTime startDate,
     required RecurrenceRule? rule,
     required DateTime targetDate,
@@ -105,6 +110,99 @@ class RecurrenceEngine {
     }
   }
 
+  /// Détermine si un événement avec une `startDate`, une `rule` optionnelle et une liste d'`exceptions`
+  /// se produit effectivement à la date `targetDate`.
+  static bool occursOnDate({
+    required DateTime startDate,
+    required RecurrenceRule? rule,
+    List<RecurrenceException> exceptions = const [],
+    required DateTime targetDate,
+  }) {
+    final target = DateTime(targetDate.year, targetDate.month, targetDate.day);
+
+    // 1. Vérifier si une exception a déplacé une occurrence vers cette date cible
+    for (final exc in exceptions) {
+      if (exc.isCancelled || exc.isDetached) continue;
+      if (exc.effectiveDate != null && _isSameDay(exc.effectiveDate!, target)) {
+        return true;
+      }
+    }
+
+    // 2. Vérifier si la date cible est une occurrence brute du modèle
+    if (!rawOccursOnDate(startDate: startDate, rule: rule, targetDate: target)) {
+      return false;
+    }
+
+    // 3. Si la date cible est une occurrence brute, vérifier s'il existe une exception pour son originalDate
+    for (final exc in exceptions) {
+      if (_isSameDay(exc.originalDate, target)) {
+        // Si l'occurrence est annulée ou détachée, elle ne doit plus apparaître dans la série
+        if (exc.isCancelled || exc.isDetached) {
+          return false;
+        }
+        // Si l'occurrence a été déplacée vers un autre jour, elle ne se produit plus à la date d'origine
+        if (exc.effectiveDate != null && !_isSameDay(exc.effectiveDate!, target)) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
+  /// Calcule l'instance effective d'une activité pour une date cible en appliquant les exceptions d'horaires/dates.
+  /// Retourne `null` si l'activité ne se produit pas à `targetDate` (annulée, détachée ou déplacée ailleurs).
+  static Activity? getOccurrenceForDate({
+    required Activity activity,
+    required DateTime targetDate,
+  }) {
+    final target = DateTime(targetDate.year, targetDate.month, targetDate.day);
+
+    if (!occursOnDate(
+      startDate: activity.startDate,
+      rule: activity.recurrenceRule,
+      exceptions: activity.exceptions,
+      targetDate: target,
+    )) {
+      return null;
+    }
+
+    // Chercher l'exception qui s'applique à cette occurrence sur targetDate
+    RecurrenceException? appliedException;
+
+    for (final exc in activity.exceptions) {
+      if (exc.isCancelled || exc.isDetached) continue;
+      // Cas 1 : Déplacée vers cette targetDate
+      if (exc.effectiveDate != null && _isSameDay(exc.effectiveDate!, target)) {
+        appliedException = exc;
+        break;
+      }
+      // Cas 2 : Occurrence originale à cette targetDate (ex: horaires modifiés le même jour)
+      if (_isSameDay(exc.originalDate, target) &&
+          (exc.effectiveDate == null || _isSameDay(exc.effectiveDate!, target))) {
+        appliedException = exc;
+        break;
+      }
+    }
+
+    if (appliedException != null) {
+      final newStartH = appliedException.effectiveStartHour ?? activity.startHour;
+      final newStartM = appliedException.effectiveStartMinute ?? activity.startMinute;
+      final newEndH = appliedException.effectiveEndHour ?? activity.endHour;
+      final newEndM = appliedException.effectiveEndMinute ?? activity.endMinute;
+
+      return activity.copyWith(
+        startDate: target,
+        startHour: newStartH,
+        startMinute: newStartM,
+        endHour: newEndH,
+        endMinute: newEndM,
+      );
+    }
+
+    return activity.copyWith(startDate: target);
+  }
+
   /// Calcule le rang d'une occurrence hebdomadaire (multi-jours possible)
   static int _calculateWeeklyOccurrenceRank({
     required DateTime start,
@@ -136,10 +234,11 @@ class RecurrenceEngine {
     return count;
   }
 
-  /// Génère toutes les dates d'occurrence comprises dans l'intervalle [fromDate, toDate]
+  /// Génère toutes les dates d'occurrence effectives comprises dans l'intervalle [fromDate, toDate]
   static List<DateTime> generateOccurrences({
     required DateTime startDate,
     required RecurrenceRule? rule,
+    List<RecurrenceException> exceptions = const [],
     required DateTime fromDate,
     required DateTime toDate,
     int maxLimit = 500,
@@ -152,7 +251,12 @@ class RecurrenceEngine {
 
     DateTime current = from;
     while (!current.isAfter(to) && results.length < maxLimit) {
-      if (occursOnDate(startDate: startDate, rule: rule, targetDate: current)) {
+      if (occursOnDate(
+        startDate: startDate,
+        rule: rule,
+        exceptions: exceptions,
+        targetDate: current,
+      )) {
         results.add(current);
       }
       current = current.add(const Duration(days: 1));

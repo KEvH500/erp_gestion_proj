@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:erp_gestion_proj/models/activity.dart';
+import 'package:erp_gestion_proj/models/recurrence_exception.dart';
 import 'package:erp_gestion_proj/models/recurrence_rule.dart';
 import 'package:erp_gestion_proj/services/recurrence_engine.dart';
 
@@ -190,6 +192,156 @@ void main() {
         DateTime(2026, 3, 7),
         DateTime(2026, 3, 10),
       ]);
+    });
+  });
+
+  group('RecurrenceEngine - Exceptions de récurrence', () {
+    final start = DateTime(2026, 3, 2); // Lundi
+    final rule = RecurrenceRule(
+      id: 'r_exc',
+      frequency: RecurrenceFrequency.weekly,
+      interval: 1,
+      byWeekDays: '1', // Tous les Lundis : 2 mars, 9 mars, 16 mars, 23 mars
+    );
+
+    test('Occurrence annulée (isCancelled = true) est exclue', () {
+      final exceptions = [
+        RecurrenceException(
+          taskId: 't1',
+          originalDate: DateTime(2026, 3, 9), // 2e lundi annulé
+          isCancelled: true,
+        ),
+      ];
+
+      expect(RecurrenceEngine.occursOnDate(
+        startDate: start,
+        rule: rule,
+        exceptions: exceptions,
+        targetDate: DateTime(2026, 3, 2),
+      ), isTrue);
+
+      expect(RecurrenceEngine.occursOnDate(
+        startDate: start,
+        rule: rule,
+        exceptions: exceptions,
+        targetDate: DateTime(2026, 3, 9),
+      ), isFalse); // Exclu
+
+      expect(RecurrenceEngine.occursOnDate(
+        startDate: start,
+        rule: rule,
+        exceptions: exceptions,
+        targetDate: DateTime(2026, 3, 16),
+      ), isTrue); // Reste de la série intact
+    });
+
+    test('Occurrence détachée (isDetached = true) est exclue de la série', () {
+      final exceptions = [
+        RecurrenceException(
+          taskId: 't1',
+          originalDate: DateTime(2026, 3, 9),
+          isDetached: true,
+          detachedTaskId: 'detached-t1',
+        ),
+      ];
+
+      expect(RecurrenceEngine.occursOnDate(
+        startDate: start,
+        rule: rule,
+        exceptions: exceptions,
+        targetDate: DateTime(2026, 3, 9),
+      ), isFalse);
+    });
+
+    test('Occurrence déplacée à une autre date (ex: Mardi 10 mars au lieu du Lundi 9 mars)', () {
+      final exceptions = [
+        RecurrenceException(
+          taskId: 't1',
+          originalDate: DateTime(2026, 3, 9),
+          newDate: DateTime(2026, 3, 10), // Déplacé au mardi
+          newStartHour: 10,
+          newStartMinute: 30,
+        ),
+      ];
+
+      // Lundi 9 mars : n'apparaît plus
+      expect(RecurrenceEngine.occursOnDate(
+        startDate: start,
+        rule: rule,
+        exceptions: exceptions,
+        targetDate: DateTime(2026, 3, 9),
+      ), isFalse);
+
+      // Mardi 10 mars : apparaît bien
+      expect(RecurrenceEngine.occursOnDate(
+        startDate: start,
+        rule: rule,
+        exceptions: exceptions,
+        targetDate: DateTime(2026, 3, 10),
+      ), isTrue);
+
+      // Lundi 16 mars : reste intact
+      expect(RecurrenceEngine.occursOnDate(
+        startDate: start,
+        rule: rule,
+        exceptions: exceptions,
+        targetDate: DateTime(2026, 3, 16),
+      ), isTrue);
+    });
+
+    test('getOccurrenceForDate applique les nouveaux horaires', () {
+      final activity = Activity(
+        id: 'act-1',
+        title: 'Cours de Maths',
+        startDate: start,
+        startHour: 8,
+        startMinute: 0,
+        endHour: 10,
+        endMinute: 0,
+        category: ActivityCategory.cours,
+        recurrenceRule: rule,
+        exceptions: [
+          RecurrenceException(
+            taskId: 'act-1',
+            originalDate: DateTime(2026, 3, 9),
+            newDate: DateTime(2026, 3, 10),
+            newStartHour: 14,
+            newStartMinute: 30,
+            newEndHour: 16,
+            newEndMinute: 30,
+          ),
+        ],
+      );
+
+      // Le 9 mars : null
+      final occ9 = RecurrenceEngine.getOccurrenceForDate(
+        activity: activity,
+        targetDate: DateTime(2026, 3, 9),
+      );
+      expect(occ9, isNull);
+
+      // Le 10 mars : horaires surchargés
+      final occ10 = RecurrenceEngine.getOccurrenceForDate(
+        activity: activity,
+        targetDate: DateTime(2026, 3, 10),
+      );
+      expect(occ10, isNotNull);
+      expect(occ10!.startHour, 14);
+      expect(occ10.startMinute, 30);
+      expect(occ10.endHour, 16);
+      expect(occ10.endMinute, 30);
+      expect(occ10.startDate, DateTime(2026, 3, 10));
+
+      // Le 16 mars : horaires d'origine conservés
+      final occ16 = RecurrenceEngine.getOccurrenceForDate(
+        activity: activity,
+        targetDate: DateTime(2026, 3, 16),
+      );
+      expect(occ16, isNotNull);
+      expect(occ16!.startHour, 8);
+      expect(occ16.startMinute, 0);
+      expect(occ16.endHour, 10);
+      expect(occ16.endMinute, 0);
     });
   });
 }

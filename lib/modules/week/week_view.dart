@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../../models/activity.dart';
 import '../../models/unplanned_task.dart';
+import '../../widgets/recurrence/shift_occurrence_modal.dart';
 import '../unplanned_tasks/widgets/quick_task_sheet.dart';
 import 'week_controller.dart';
 
@@ -638,44 +639,75 @@ class _DayCard extends StatelessWidget {
                   runSpacing: 6,
                   children: [
                     ...activities.map(
-                      (activity) => Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: activity.category.color.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: activity.category.color.withValues(alpha: 0.3),
+                      (activity) => InkWell(
+                        onTap: () {
+                          if (activity.isRecurring) {
+                            ShiftOccurrenceModal.show(
+                              context: context,
+                              activity: activity,
+                              occurrenceDate: dayDate,
+                              onUpdated: () => Get.find<WeekController>().loadData(),
+                            );
+                          } else {
+                            onTap();
+                          }
+                        },
+                        onLongPress: activity.isRecurring
+                            ? () => ShiftOccurrenceModal.show(
+                                  context: context,
+                                  activity: activity,
+                                  occurrenceDate: dayDate,
+                                  onUpdated: () => Get.find<WeekController>().loadData(),
+                                )
+                            : null,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
                           ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: activity.category.color,
-                                shape: BoxShape.circle,
-                              ),
+                          decoration: BoxDecoration(
+                            color: activity.category.color.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: activity.category.color.withValues(alpha: 0.3),
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              activity.title,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                decoration: activity.isCompleted
-                                    ? TextDecoration.lineThrough
-                                    : null,
-                                color: activity.isCompleted
-                                    ? theme.colorScheme.onSurfaceVariant
-                                    : null,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: activity.category.color,
+                                  shape: BoxShape.circle,
+                                ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 6),
+                              Text(
+                                activity.title,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  decoration: activity.isCompleted
+                                      ? TextDecoration.lineThrough
+                                      : null,
+                                  color: activity.isCompleted
+                                      ? theme.colorScheme.onSurfaceVariant
+                                      : null,
+                                ),
+                              ),
+                              if (activity.isRecurring) ...[
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.sync_rounded,
+                                  size: 11,
+                                  color: Colors.blueAccent,
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
                       ),
                     ),

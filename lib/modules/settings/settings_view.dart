@@ -362,7 +362,117 @@ class SettingsView extends GetView<SettingsController> {
 
           const SizedBox(height: 28),
 
-          // Section 4 : À propos
+          // Section 4 : Fiabilité des alarmes & Arrière-plan
+          _buildSectionHeader(
+              context, 'Fiabilité des alarmes & Arrière-plan', Icons.alarm_on_rounded),
+          const SizedBox(height: 10),
+          Card(
+            margin: EdgeInsets.zero,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Précision à la minute exacte & Mode Veille (Doze)',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Sur Android 12+, des autorisations spécifiques garantissent que vos alarmes sonnent précisément à l\'heure même lorsque l\'écran est éteint.',
+                    style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 1. Statut Alarme Exacte (SCHEDULE_EXACT_ALARM)
+                  Obx(
+                    () => ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        controller.exactAlarmGranted.value
+                            ? Icons.check_circle_rounded
+                            : Icons.warning_amber_rounded,
+                        color: controller.exactAlarmGranted.value
+                            ? Colors.green
+                            : Colors.orange,
+                      ),
+                      title: const Text(
+                        'Alarmes exactes (Android 12+)',
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                      ),
+                      subtitle: Text(
+                        controller.exactAlarmGranted.value
+                            ? 'Autorisé : Déclenchement garanti à la minute exacte.'
+                            : 'Non autorisé : Vos alarmes risquent d\'être retardées.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      trailing: controller.exactAlarmGranted.value
+                          ? null
+                          : FilledButton.tonal(
+                              onPressed: controller.requestExactAlarms,
+                              child: const Text('Autoriser', style: TextStyle(fontSize: 11)),
+                            ),
+                    ),
+                  ),
+                  const Divider(),
+
+                  // 2. Statut Optimisation de Batterie
+                  Obx(
+                    () => ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        controller.batteryOptimizationIgnored.value
+                            ? Icons.battery_charging_full_rounded
+                            : Icons.battery_alert_rounded,
+                        color: controller.batteryOptimizationIgnored.value
+                            ? Colors.green
+                            : Colors.orange,
+                      ),
+                      title: const Text(
+                        'Exemption d\'optimisation batterie',
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                      ),
+                      subtitle: Text(
+                        controller.batteryOptimizationIgnored.value
+                            ? 'Exemptée : Le système ne suspendra pas les alarmes.'
+                            : 'Recommandé : Évite que le mode Doze n\'endorme les rappels.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      trailing: controller.batteryOptimizationIgnored.value
+                          ? null
+                          : FilledButton.tonal(
+                              onPressed: controller.requestIgnoreBatteryOptimizations,
+                              child: const Text('Exempter', style: TextStyle(fontSize: 11)),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // 3. Bouton Replanification manuelle de la fenêtre glissante
+                  OutlinedButton.icon(
+                    onPressed: controller.rescheduleAllNotificationsNow,
+                    icon: const Icon(Icons.sync_rounded, size: 16),
+                    label: const Text(
+                      'Replanifier la fenêtre glissante (30 jours)',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 28),
+
+          // Section 5 : À propos
           _buildSectionHeader(context, 'À propos', Icons.info_outline_rounded),
           const SizedBox(height: 10),
           Card(

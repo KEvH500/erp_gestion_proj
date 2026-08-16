@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../app/controllers/base_controller.dart';
 import '../../app/router/app_router.dart';
 import '../../models/activity.dart';
+import '../../models/recurrence_exception.dart';
 import '../../models/unplanned_task.dart';
 
 /// Contrôleur GetX pour la vue détaillée d'une journée
@@ -143,6 +144,21 @@ class DayController extends BaseController {
 
   Future<void> deleteActivity(String id) async {
     await activityRepo.deleteActivity(id);
+    await notificationService.cancelActivityNotification(id);
+    await loadDayData();
+  }
+
+  Future<void> cancelOccurrence(String id, DateTime date) async {
+    final exc = RecurrenceException(
+      taskId: id,
+      originalDate: date,
+      isCancelled: true,
+    );
+    await activityRepo.addRecurrenceException(id, exc);
+    final updated = activityRepo.getActivityById(id);
+    if (updated != null) {
+      await notificationService.scheduleActivityNotification(updated);
+    }
     await loadDayData();
   }
 

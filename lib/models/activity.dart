@@ -1,6 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
+import '../theme/app_theme.dart';
 import 'recurrence_rule.dart';
+import 'recurrence_exception.dart';
 
 part 'activity.g.dart';
 
@@ -41,15 +44,15 @@ extension ActivityCategoryExtension on ActivityCategory {
   Color get color {
     switch (this) {
       case ActivityCategory.cours:
-        return const Color(0xFF3B82F6); // Bleu vif
+        return AppColors.saphir; // #4C8DFF
       case ActivityCategory.travail:
-        return const Color(0xFF8B5CF6); // Violet moderne
+        return AppColors.amethyste; // #9B6BFF
       case ActivityCategory.perso:
-        return const Color(0xFF10B981); // Émeraude / Vert
+        return AppColors.jade; // #34C79E
       case ActivityCategory.sport:
-        return const Color(0xFFEF4444); // Rouge / Corail
+        return AppColors.rubis; // #E8465C
       case ActivityCategory.autre:
-        return const Color(0xFF64748B); // Gris ardoise
+        return AppColors.topaze; // #F2C14E
     }
   }
 
@@ -110,6 +113,9 @@ class Activity extends HiveObject {
   @HiveField(12)
   final RecurrenceRule? recurrenceRule;
 
+  @HiveField(13)
+  final List<RecurrenceException> exceptions;
+
   Activity({
     required this.id,
     required this.title,
@@ -124,6 +130,7 @@ class Activity extends HiveObject {
     this.location,
     this.reminderMinutesBefore,
     this.recurrenceRule,
+    this.exceptions = const [],
   });
 
   /// Jour de la semaine dérivé (1 = Lundi, 7 = Dimanche)
@@ -194,6 +201,7 @@ class Activity extends HiveObject {
     int? reminderMinutesBefore,
     RecurrenceRule? recurrenceRule,
     bool clearRecurrence = false,
+    List<RecurrenceException>? exceptions,
   }) {
     return Activity(
       id: id ?? this.id,
@@ -209,12 +217,13 @@ class Activity extends HiveObject {
       location: location ?? this.location,
       reminderMinutesBefore: reminderMinutesBefore ?? this.reminderMinutesBefore,
       recurrenceRule: clearRecurrence ? null : (recurrenceRule ?? this.recurrenceRule),
+      exceptions: exceptions ?? this.exceptions,
     );
   }
 
   @override
   String toString() {
-    return 'Activity(id: $id, title: $title, startDate: $startDate, time: $timeRangeFormatted, category: ${category.name}, isCompleted: $isCompleted, recurring: $isRecurring)';
+    return 'Activity(id: $id, title: $title, startDate: $startDate, time: $timeRangeFormatted, category: ${category.name}, isCompleted: $isCompleted, recurring: $isRecurring, exceptions: ${exceptions.length})';
   }
 
   @override
@@ -233,7 +242,8 @@ class Activity extends HiveObject {
         other.isCompleted == isCompleted &&
         other.location == location &&
         other.reminderMinutesBefore == reminderMinutesBefore &&
-        other.recurrenceRule == recurrenceRule;
+        other.recurrenceRule == recurrenceRule &&
+        listEquals(other.exceptions, exceptions);
   }
 
   @override
@@ -252,6 +262,7 @@ class Activity extends HiveObject {
       location,
       reminderMinutesBefore,
       recurrenceRule,
+      Object.hashAll(exceptions),
     );
   }
 }
