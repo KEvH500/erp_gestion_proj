@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:reactive_forms/reactive_forms.dart';
+import '../../app/router/app_router.dart';
 import '../../widgets/form/app_text_input_field.dart';
 import 'settings_controller.dart';
 
@@ -472,7 +473,23 @@ class SettingsView extends GetView<SettingsController> {
 
           const SizedBox(height: 28),
 
-          // Section 5 : À propos
+          // Section 5 : Export & Partage
+          _buildSectionHeader(context, 'Export & Données', Icons.ios_share_rounded),
+          const SizedBox(height: 10),
+          Card(
+            margin: EdgeInsets.zero,
+            child: ListTile(
+              leading: const Icon(Icons.file_download_outlined, color: Colors.blueAccent),
+              title: const Text('Export hebdomadaire (CSV)', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: const Text('Prévisualiser et exporter les tâches et horaires de n\'importe quelle semaine.'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => Get.toNamed(Routes.EXPORT),
+            ),
+          ),
+
+          const SizedBox(height: 28),
+
+          // Section 6 : À propos
           _buildSectionHeader(context, 'À propos', Icons.info_outline_rounded),
           const SizedBox(height: 10),
           Card(

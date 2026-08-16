@@ -162,25 +162,13 @@ class ActivityFormController extends BaseController {
     final checkDates = <DateTime>[startDate];
 
     if (isRecurring && recurrenceRule != null) {
-      final occurrences = RecurrenceEngine.generateOccurrences(
-        activity: Activity(
-          id: existingActivity?.id ?? 'temp-candidate',
-          title: title,
-          startDate: startDate,
-          startHour: startTime.hour,
-          startMinute: startTime.minute,
-          endHour: endTime.hour,
-          endMinute: endTime.minute,
-          category: category,
-          recurrenceRule: recurrenceRule,
-          isLocked: isLocked,
-        ),
-        rangeStart: startDate,
-        rangeEnd: startDate.add(const Duration(days: 35)),
+      final occurrenceDates = RecurrenceEngine.generateOccurrences(
+        startDate: startDate,
+        rule: recurrenceRule,
+        fromDate: startDate,
+        toDate: startDate.add(const Duration(days: 35)),
       );
-      for (final occ in occurrences) {
-        checkDates.add(occ.startDate);
-      }
+      checkDates.addAll(occurrenceDates);
     }
 
     final allBlockingConflicts = <Activity>[];
