@@ -35,7 +35,7 @@ class AppColorPicker extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: palette.map((color) {
-            final isSelected = selectedColor.value == color.value;
+            final isSelected = selectedColor == color;
             return GestureDetector(
               onTap: () => onColorSelected(color),
               child: AnimatedContainer(

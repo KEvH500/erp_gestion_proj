@@ -5,7 +5,6 @@ import '../../models/activity.dart';
 import '../../models/unplanned_task.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/core/app_text.dart';
-import '../../widgets/core/app_card.dart';
 import '../../widgets/recurrence/shift_occurrence_modal.dart';
 import '../unplanned_tasks/widgets/quick_task_sheet.dart';
 import 'week_controller.dart';
@@ -708,13 +707,13 @@ class _DayCard extends StatelessWidget {
                           horizontal: 8,
                           vertical: 5,
                         ),
-                        decoration: BoxDecoration(
+                        decoration: const BoxDecoration(
                           color: AppColors.surfaceVariant,
-                          borderRadius: const BorderRadius.only(
+                          borderRadius: BorderRadius.only(
                             topRight: Radius.circular(8),
                             bottomRight: Radius.circular(8),
                           ),
-                          border: const Border(
+                          border: Border(
                             left: BorderSide(color: AppColors.topaze, width: 3),
                             top: BorderSide(color: AppColors.border, width: 0.5),
                             right: BorderSide(color: AppColors.border, width: 0.5),

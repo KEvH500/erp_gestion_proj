@@ -93,15 +93,15 @@ class DailyReportView extends GetView<DailyReportController> {
                       fontWeight: FontWeight.w900,
                       color: r.score >= 75 ? AppColors.jade : AppColors.accentPrimary,
                     ),
-                  ),   ),
+                  ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Score de Productivité / 100', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        const AppText.caption('Score de Productivité / 100'),
                         const SizedBox(height: 4),
-                        Text(r.appreciation, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                        AppText.heading(r.appreciation, fontSize: 16),
                       ],
                     ),
                   ),
@@ -115,25 +115,21 @@ class DailyReportView extends GetView<DailyReportController> {
               children: [
                 Expanded(
                   child: _buildMetricCard(
-                    theme: theme,
-                    isDark: isDark,
                     title: 'Emploi du temps',
                     value: '${r.activitiesCompleted} / ${r.activitiesTotal}',
                     subtitle: '${r.totalCompletedTimeFormatted} accomplies',
                     icon: Icons.calendar_month_rounded,
-                    color: Colors.blueAccent,
+                    color: AppColors.saphir,
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: _buildMetricCard(
-                    theme: theme,
-                    isDark: isDark,
                     title: 'Imprévus résolus',
                     value: '${r.unplannedTasksCompleted} / ${r.unplannedTasksTotal}',
                     subtitle: '${(r.unplannedResolutionRate * 100).toInt()}% traités',
                     icon: Icons.bolt_rounded,
-                    color: Colors.amber,
+                    color: AppColors.topaze,
                   ),
                 ),
               ],
@@ -143,25 +139,21 @@ class DailyReportView extends GetView<DailyReportController> {
               children: [
                 Expanded(
                   child: _buildMetricCard(
-                    theme: theme,
-                    isDark: isDark,
                     title: 'Objectifs validés',
                     value: '${r.goalsAchieved} / ${r.goalsTotal}',
                     subtitle: r.goalsTotal > 0 ? '${((r.goalsAchieved / r.goalsTotal) * 100).toInt()}% réussis' : 'Aucun objectif',
                     icon: Icons.track_changes_rounded,
-                    color: Colors.purpleAccent,
+                    color: AppColors.amethyste,
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: _buildMetricCard(
-                    theme: theme,
-                    isDark: isDark,
                     title: 'Temps planifié',
                     value: r.totalPlannedTimeFormatted,
                     subtitle: 'Durée théorique',
                     icon: Icons.timer_outlined,
-                    color: Colors.teal,
+                    color: AppColors.jade,
                   ),
                 ),
               ],
@@ -169,10 +161,10 @@ class DailyReportView extends GetView<DailyReportController> {
             const SizedBox(height: 20),
 
             // 4. Répartition par catégorie
-            const Text('Répartition du temps accompli', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            const AppText.heading('Répartition du temps accompli', fontSize: 15),
             const SizedBox(height: 10),
             if (r.categoryDurationMinutes.isEmpty)
-              const Text('Aucune activité accomplie enregistrée.', style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic))
+              const AppText.caption('Aucune activité accomplie enregistrée.')
             else
               ...r.categoryDurationMinutes.entries.map((entry) {
                 final cat = entry.key;
@@ -191,10 +183,14 @@ class DailyReportView extends GetView<DailyReportController> {
                             children: [
                               Icon(cat.icon, size: 14, color: cat.color),
                               const SizedBox(width: 6),
-                              Text(cat.label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                              AppText.body(cat.label, fontSize: 12, fontWeight: FontWeight.w600),
                             ],
                           ),
-                          Text('${(mins ~/ 60)}h ${(mins % 60).toString().padLeft(2, "0")}m (${(pct * 100).toInt()}%)', style: const TextStyle(fontSize: 11)),
+                          AppText.time(
+                            '${(mins ~/ 60)}h ${(mins % 60).toString().padLeft(2, "0")}m (${(pct * 100).toInt()}%)',
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                          ),
                         ],
                       ),
                       const SizedBox(height: 4),
@@ -203,7 +199,7 @@ class DailyReportView extends GetView<DailyReportController> {
                         child: LinearProgressIndicator(
                           value: pct,
                           minHeight: 6,
-                          backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
+                          backgroundColor: AppColors.surfaceVariant,
                           color: cat.color,
                         ),
                       ),
@@ -217,9 +213,14 @@ class DailyReportView extends GetView<DailyReportController> {
             // 5. Bouton Copier / Partager
             FilledButton.icon(
               onPressed: controller.copyReportToClipboard,
-              style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.accentPrimary,
+                foregroundColor: AppColors.background,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
               icon: const Icon(Icons.share_rounded),
-              label: const Text('Copier & Partager le rapport', style: TextStyle(fontWeight: FontWeight.bold)),
+              label: const AppText.label('Copier & Partager le rapport', color: AppColors.background, fontSize: 14),
             ),
           ],
         );
@@ -228,8 +229,6 @@ class DailyReportView extends GetView<DailyReportController> {
   }
 
   Widget _buildMetricCard({
-    required ThemeData theme,
-    required bool isDark,
     required String title,
     required String value,
     required String subtitle,
@@ -239,9 +238,9 @@ class DailyReportView extends GetView<DailyReportController> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -250,13 +249,13 @@ class DailyReportView extends GetView<DailyReportController> {
             children: [
               Icon(icon, size: 16, color: color),
               const SizedBox(width: 6),
-              Text(title, style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
+              AppText.caption(title),
             ],
           ),
           const SizedBox(height: 8),
-          Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          AppText.time(value, fontSize: 16, fontWeight: FontWeight.bold),
           const SizedBox(height: 2),
-          Text(subtitle, style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
+          AppText.caption(subtitle),
         ],
       ),
     );

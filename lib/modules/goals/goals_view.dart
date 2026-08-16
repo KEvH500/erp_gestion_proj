@@ -125,7 +125,7 @@ class GoalsView extends GetView<GoalsController> {
                   const SizedBox(width: 6),
                   _buildFilterChip('⏱️ Temps Limité', GoalType.timeLimited),
                   const SizedBox(width: 6),
-                  _buildFilterChip('⏳ Temps Plein', GoalType.fullTime),
+                  _buildFilterChip('⏳ Plein Temps', GoalType.fullTime),
                   const SizedBox(width: 6),
                   _buildFilterChip('📋 Tâches', GoalType.taskCount),
                 ],
@@ -136,14 +136,14 @@ class GoalsView extends GetView<GoalsController> {
 
             // 3. Liste des objectifs
             if (filteredGoals.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 40),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
                 child: Center(
                   child: Column(
                     children: [
-                      Icon(Icons.track_changes_rounded, size: 48, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
-                      const SizedBox(height: 12),
-                      Text('Aucun objectif dans cette catégorie.', style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
+                      Icon(Icons.track_changes_rounded, size: 48, color: AppColors.textMuted),
+                      SizedBox(height: 12),
+                      AppText.caption('Aucun objectif dans cette catégorie.'),
                     ],
                   ),
                 ),
@@ -152,8 +152,17 @@ class GoalsView extends GetView<GoalsController> {
               ...filteredGoals.map((goal) {
                 return Card(
                   margin: const EdgeInsets.only(bottom: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  child: Padding(
+                  color: AppColors.surface,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.horizontal(right: Radius.circular(12)),
+                    side: BorderSide(color: AppColors.border, width: 0.5),
+                  ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border(
+                        left: BorderSide(color: goal.type.color, width: 3.5),
+                      ),
+                    ),
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -163,19 +172,18 @@ class GoalsView extends GetView<GoalsController> {
                             Icon(goal.type.icon, color: goal.type.color, size: 20),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: Text(
+                              child: AppText.body(
                                 goal.title,
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                  decoration: goal.isCompleted ? TextDecoration.lineThrough : null,
-                                ),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                decoration: goal.isCompleted ? TextDecoration.lineThrough : null,
+                                color: goal.isCompleted ? AppColors.textMuted : AppColors.textPrimary,
                               ),
                             ),
                             IconButton(
                               icon: Icon(
                                 goal.isCompleted ? Icons.check_circle_rounded : Icons.check_circle_outline_rounded,
-                                color: goal.isCompleted ? Colors.green : Colors.grey,
+                                color: goal.isCompleted ? AppColors.jade : AppColors.textMuted,
                               ),
                               onPressed: () => controller.toggleGoal(goal.id),
                             ),
@@ -187,7 +195,7 @@ class GoalsView extends GetView<GoalsController> {
                           child: LinearProgressIndicator(
                             value: goal.progressPercentage,
                             minHeight: 8,
-                            backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
+                            backgroundColor: AppColors.surfaceVariant,
                             color: goal.type.color,
                           ),
                         ),
@@ -195,8 +203,12 @@ class GoalsView extends GetView<GoalsController> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(goal.progressDisplay, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                            Text(goal.progressPercentageFormatted, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: goal.type.color)),
+                            AppText.caption(goal.progressDisplay),
+                            AppText.time(
+                              goal.progressPercentageFormatted,
+                              color: goal.type.color,
+                              fontSize: 12,
+                            ),
                           ],
                         ),
                       ],
@@ -209,8 +221,10 @@ class GoalsView extends GetView<GoalsController> {
       }),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => AddEditGoalModal.show(context).then((_) => controller.loadGoals()),
+        backgroundColor: AppColors.accentPrimary,
+        foregroundColor: AppColors.background,
         icon: const Icon(Icons.add_rounded),
-        label: const Text('Objectif', style: TextStyle(fontWeight: FontWeight.bold)),
+        label: const AppText.label('Objectif', color: AppColors.background),
       ),
     );
   }
@@ -218,8 +232,10 @@ class GoalsView extends GetView<GoalsController> {
   Widget _buildFilterChip(String label, GoalType? type) {
     final isSelected = controller.filterType.value == type;
     return ChoiceChip(
-      label: Text(label, style: const TextStyle(fontSize: 12)),
+      label: AppText.caption(label, color: isSelected ? AppColors.background : AppColors.textPrimary),
       selected: isSelected,
+      selectedColor: AppColors.accentPrimary,
+      backgroundColor: AppColors.surfaceVariant,
       onSelected: (_) => controller.setFilterType(type),
     );
   }

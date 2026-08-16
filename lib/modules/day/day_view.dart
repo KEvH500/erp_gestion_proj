@@ -3,7 +3,6 @@ import 'package:get/get.dart';
 import '../../models/activity.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/core/app_text.dart';
-import '../../widgets/core/app_card.dart';
 import '../../widgets/recurrence/shift_occurrence_modal.dart';
 import '../unplanned_tasks/widgets/quick_task_sheet.dart';
 import '../unplanned_tasks/widgets/unplanned_task_list_widget.dart';
