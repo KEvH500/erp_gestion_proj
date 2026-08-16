@@ -1,0 +1,723 @@
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:intl/intl.dart';
+import '../../models/activity.dart';
+import '../../models/unplanned_task.dart';
+import '../unplanned_tasks/widgets/quick_task_sheet.dart';
+import 'week_controller.dart';
+
+/// Vue hebdomadaire affichant les 7 jours de la semaine (Lundi à Dimanche)
+class WeekView extends GetView<WeekController> {
+  const WeekView({super.key});
+
+  void _showAddChoicesModal(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    Get.bottomSheet(
+      Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.grey[700] : Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Que souhaitez-vous ajouter ?',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Option 1 : Tâche Imprévue / Rapide (⚡ FLASH)
+              InkWell(
+                onTap: () {
+                  Get.back();
+                  QuickTaskSheet.show(context).then((_) => controller.loadData());
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: isDark ? 0.15 : 0.1),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.amber.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.bolt_rounded,
+                          color: Colors.amber,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Text(
+                                  'Tâche Imprévue / Rapide',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                SizedBox(width: 6),
+                                Text(
+                                  '⚡ FLASH',
+                                  style: TextStyle(
+                                    color: Colors.orange,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Sans contrainte d\'horaire fixe. Créez un to-do urgent en 2 secondes.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right_rounded),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Option 2 : Activité Planifiée (Emploi du temps)
+              InkWell(
+                onTap: () {
+                  Get.back();
+                  controller.goToAddActivity();
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: isDark ? 0.15 : 0.08),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.calendar_month_rounded,
+                          color: theme.colorScheme.primary,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Activité Planifiée',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Avec plage horaire fixe (ex: 08:00 - 10:00) et récurrence hebdomadaire.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right_rounded),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      isScrollControlled: true,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Emploi du temps',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20),
+            ),
+            Obx(
+              () => Text(
+                controller.monthYearFormatted,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          // Bouton d'action directe "⚡ + Imprévu"
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: FilledButton.tonalIcon(
+              onPressed: () => QuickTaskSheet.show(context).then((_) => controller.loadData()),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.amber.withValues(alpha: isDark ? 0.25 : 0.18),
+                foregroundColor: isDark ? Colors.amber[300] : const Color(0xFFB45309),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                visualDensity: VisualDensity.compact,
+              ),
+              icon: const Icon(Icons.bolt_rounded, size: 16, color: Colors.amber),
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    '+ Imprévu',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                  ),
+                  Obx(() {
+                    final count = controller.todayUnplannedPendingCount;
+                    if (count == 0) return const SizedBox.shrink();
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: const BoxDecoration(
+                            color: Colors.redAccent,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            '$count',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.analytics_outlined),
+            tooltip: 'Rapport de journée',
+            onPressed: controller.goToDailyReport,
+          ),
+          Obx(() {
+            if (controller.weekOffset.value == 0) return const SizedBox.shrink();
+            return TextButton.icon(
+              onPressed: controller.resetToCurrentWeek,
+              icon: const Icon(Icons.today_rounded, size: 18),
+              label: const Text(
+                'Aujourd\'hui',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            );
+          }),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Paramètres',
+            onPressed: controller.goToSettings,
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // 1. Barre de navigation de semaine (Précédent / Suivant)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.chevron_left_rounded),
+                  tooltip: 'Semaine précédente',
+                  onPressed: controller.previousWeek,
+                ),
+                Obx(
+                  () => Column(
+                    children: [
+                      Text(
+                        'Semaine du ${controller.startFormatted} au ${controller.endFormatted}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        controller.weekSubtitle,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.chevron_right_rounded),
+                  tooltip: 'Semaine suivante',
+                  onPressed: controller.nextWeek,
+                ),
+              ],
+            ),
+          ),
+
+          // 2. Liste verticale des 7 jours (Lundi à Dimanche)
+          Expanded(
+            child: Obx(
+              () => ListView.builder(
+                padding: const EdgeInsets.only(top: 4, bottom: 88),
+                itemCount: 7,
+                itemBuilder: (context, index) {
+                  final dayOfWeek = index + 1; // 1 = Lundi ... 7 = Dimanche
+                  final dayDate = controller.getDateForDay(dayOfWeek);
+                  final isCurrentDay = controller.isToday(dayDate);
+                  final activities = controller.getActivitiesForDay(dayOfWeek);
+                  final unplannedTasks = controller.getUnplannedTasksForDate(dayDate);
+
+                  return _DayCard(
+                    dayOfWeek: dayOfWeek,
+                    dayDate: dayDate,
+                    isToday: isCurrentDay,
+                    activities: activities,
+                    unplannedTasks: unplannedTasks,
+                    onTap: () => controller.goToDay(dayOfWeek, dayDate),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+
+      // 3. Bouton Flottant avec double action / modal de choix
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showAddChoicesModal(context),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text(
+          'Ajouter',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
+
+      // 4. Bottom Navigation Bar pour accès rapide
+      bottomNavigationBar: Obx(
+        () => NavigationBar(
+          selectedIndex: controller.bottomNavIndex.value,
+          onDestinationSelected: controller.onBottomNavSelected,
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.calendar_view_week_outlined),
+              selectedIcon: Icon(Icons.calendar_view_week_rounded),
+              label: 'Semaine',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.today_outlined),
+              selectedIcon: Icon(Icons.today_rounded),
+              label: 'Aujourd\'hui',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.track_changes_outlined),
+              selectedIcon: Icon(Icons.track_changes_rounded),
+              label: 'Objectifs',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.settings_outlined),
+              selectedIcon: Icon(Icons.settings_rounded),
+              label: 'Réglages',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Carte représentant un jour de la semaine
+class _DayCard extends StatelessWidget {
+  final int dayOfWeek;
+  final DateTime dayDate;
+  final bool isToday;
+  final List<Activity> activities;
+  final List<UnplannedTask> unplannedTasks;
+  final VoidCallback onTap;
+
+  const _DayCard({
+    required this.dayOfWeek,
+    required this.dayDate,
+    required this.isToday,
+    required this.activities,
+    required this.unplannedTasks,
+    required this.onTap,
+  });
+
+  String get _dayName {
+    switch (dayOfWeek) {
+      case 1:
+        return 'Lundi';
+      case 2:
+        return 'Mardi';
+      case 3:
+        return 'Mercredi';
+      case 4:
+        return 'Jeudi';
+      case 5:
+        return 'Vendredi';
+      case 6:
+        return 'Samedi';
+      case 7:
+        return 'Dimanche';
+      default:
+        return '';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final dayNumberFormat = DateFormat('d MMMM', 'fr_FR');
+    final formattedDate = dayNumberFormat.format(dayDate);
+
+    final pendingUnplanned = unplannedTasks.where((t) => !t.isCompleted).toList();
+
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: isToday
+              ? theme.colorScheme.primary
+              : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+          width: isToday ? 2 : 1,
+        ),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Entête du jour : Nom, Date, Badges
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: isToday
+                              ? theme.colorScheme.primary
+                              : (isDark
+                                  ? const Color(0xFF334155)
+                                  : const Color(0xFFEEF2F6)),
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          _dayName.substring(0, 1),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: isToday
+                                ? Colors.white
+                                : (isDark
+                                    ? Colors.white
+                                    : const Color(0xFF334155)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                _dayName,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: isToday
+                                      ? theme.colorScheme.primary
+                                      : null,
+                                ),
+                              ),
+                              if (isToday) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.primary,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Text(
+                                    'AUJOURD\'HUI',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          Text(
+                            formattedDate,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      if (pendingUnplanned.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          margin: const EdgeInsets.only(right: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.withValues(
+                                alpha: isDark ? 0.25 : 0.15),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.amber.withValues(alpha: 0.5),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.bolt_rounded,
+                                  size: 14, color: Colors.amber),
+                              const SizedBox(width: 2),
+                              Text(
+                                '${pendingUnplanned.length}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 11,
+                                  color: isDark
+                                      ? Colors.amber[300]
+                                      : const Color(0xFFB45309),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: activities.isEmpty
+                              ? (isDark
+                                  ? const Color(0xFF334155)
+                                  : const Color(0xFFF1F5F9))
+                              : theme.colorScheme.primaryContainer
+                                  .withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${activities.length} act.',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            color: activities.isEmpty
+                                ? theme.colorScheme.onSurfaceVariant
+                                : theme.colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              if (activities.isNotEmpty || unplannedTasks.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    ...activities.map(
+                      (activity) => Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: activity.category.color.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: activity.category.color.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: activity.category.color,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              activity.title,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                decoration: activity.isCompleted
+                                    ? TextDecoration.lineThrough
+                                    : null,
+                                color: activity.isCompleted
+                                    ? theme.colorScheme.onSurfaceVariant
+                                    : null,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (pendingUnplanned.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.amber.withValues(alpha: 0.4),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.bolt_rounded,
+                                size: 12, color: Colors.amber),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${pendingUnplanned.length} imprévu(s)',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: isDark
+                                    ? Colors.amber[300]
+                                    : const Color(0xFFB45309),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
