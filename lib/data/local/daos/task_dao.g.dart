@@ -7,4 +7,6 @@ mixin _$TaskDaoMixin on DatabaseAccessor<AppDatabase> {
   $ProjectsTable get projects => attachedDatabase.projects;
   $RecurrenceRulesTable get recurrenceRules => attachedDatabase.recurrenceRules;
   $TasksTable get tasks => attachedDatabase.tasks;
+  $RecurrenceExceptionsTable get recurrenceExceptions =>
+      attachedDatabase.recurrenceExceptions;
 }

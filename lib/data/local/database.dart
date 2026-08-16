@@ -81,15 +81,44 @@ class TaskComments extends Table {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 
+/// Table `recurrence_exceptions`
+@DataClassName('RecurrenceExceptionEntry')
+class RecurrenceExceptions extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  @ReferenceName('taskExceptions')
+  IntColumn get taskId => integer()
+      .references(Tasks, #id, onDelete: KeyAction.cascade)();
+
+  DateTimeColumn get originalDate => dateTime()();
+  BoolColumn get isCancelled => boolean().withDefault(const Constant(false))();
+  BoolColumn get isDetached => boolean().withDefault(const Constant(false))();
+
+  @ReferenceName('detachedExceptions')
+  IntColumn get detachedTaskId => integer()
+      .nullable()
+      .references(Tasks, #id, onDelete: KeyAction.setNull)();
+
+  DateTimeColumn get newDate => dateTime().nullable()();
+  DateTimeColumn get newStartTime => dateTime().nullable()();
+  DateTimeColumn get newEndTime => dateTime().nullable()();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  List<Set<Column>> get uniqueKeys => [
+        {taskId, originalDate},
+      ];
+}
+
 @DriftDatabase(
-  tables: [Projects, RecurrenceRules, Tasks, TaskComments],
+  tables: [Projects, RecurrenceRules, Tasks, TaskComments, RecurrenceExceptions],
   daos: [ProjectDao, TaskDao, TaskCommentDao],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? e]) : super(e ?? _openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -101,6 +130,9 @@ class AppDatabase extends _$AppDatabase {
         await m.createTable(recurrenceRules);
         await m.addColumn(tasks, tasks.startDate);
         await m.addColumn(tasks, tasks.recurrenceRuleId);
+      }
+      if (from < 3) {
+        await m.createTable(recurrenceExceptions);
       }
     },
   );

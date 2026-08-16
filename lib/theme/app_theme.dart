@@ -1,111 +1,150 @@
 import 'package:flutter/material.dart';
 
+/// Classe centralisée des jetons de couleurs du thème "Cadran de précision"
+abstract class AppColors {
+  // Neutres (fond et surfaces)
+  /// Fond principal, anthracite chaud (#14151A — jamais de noir pur #000000)
+  static const Color background = Color(0xFF14151A);
+
+  /// Surfaces élevées, cartes, modals (#1E2027)
+  static const Color surface = Color(0xFF1E2027);
+
+  /// Éléments secondaires, repères, conteneurs (#24262E)
+  static const Color surfaceVariant = Color(0xFF24262E);
+
+  /// Bordures fines et séparateurs (#2C2E36)
+  static const Color border = Color(0xFF2C2E36);
+
+  /// Texte principal blanc cassé chaud (#F2F0EA — jamais de blanc pur #FFFFFF)
+  static const Color textPrimary = Color(0xFFF2F0EA);
+
+  /// Texte secondaire (#9A9AA2)
+  static const Color textSecondary = Color(0xFF9A9AA2);
+
+  /// Texte estompé / disabled (#6C6C74)
+  static const Color textMuted = Color(0xFF6C6C74);
+
+  // Accent primaire (Actions, boutons, CTA, repère horaire doré)
+  /// Accent doré / laiton (#E8A33D)
+  static const Color accentPrimary = Color(0xFFE8A33D);
+
+  /// Accent doré assombri pour les états pressés / hover (~12% plus sombre : #CC8F36)
+  static const Color accentPrimaryHover = Color(0xFFCC8F36);
+
+  // Palette Pierres Précieuses (Catégories et Projets)
+  static const Color saphir = Color(0xFF4C8DFF);
+  static const Color jade = Color(0xFF34C79E);
+  static const Color amethyste = Color(0xFF9B6BFF);
+  static const Color topaze = Color(0xFFF2C14E);
+  static const Color rubis = Color(0xFFE8465C);
+
+  /// Palette standard des 5 pierres précieuses pour catégories & sélecteurs
+  static const List<Color> categoryPalette = [
+    saphir,
+    jade,
+    amethyste,
+    topaze,
+    rubis,
+  ];
+}
+
+/// Thème global de l'application appliquant la direction "Cadran de précision"
 class AppTheme {
-  // Couleurs d'accent principales
-  static const Color primaryColor = Color(0xFF4F46E5); // Indigo moderne
-  static const Color primaryLight = Color(0xFF6366F1);
-  static const Color secondaryColor = Color(0xFF0EA5E9); // Bleu ciel
-  static const Color accentColor = Color(0xFF10B981); // Émeraude
-
-  // Thème Clair
-  static ThemeData get lightTheme {
-    final base = ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.light,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: primaryColor,
-        brightness: Brightness.light,
-        primary: primaryColor,
-        secondary: secondaryColor,
-        surface: Colors.white,
-        surfaceContainerHighest: const Color(0xFFF1F5F9),
-        onSurface: const Color(0xFF1E293B), // Texte sombre et lisible
-        outline: const Color(0xFFCBD5E1),
-      ),
-    );
-
-    return base.copyWith(
-      scaffoldBackgroundColor: const Color(0xFFF8FAFC),
-      appBarTheme: const AppBarTheme(
-        centerTitle: false,
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Color(0xFF0F172A),
-        titleTextStyle: TextStyle(
-          color: Color(0xFF0F172A),
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-          letterSpacing: -0.5,
-        ),
-      ),
-      cardTheme: CardThemeData(
-        color: Colors.white,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
-        ),
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      ),
-      floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 3,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-      ),
-    );
-  }
-
-  // Thème Sombre
+  /// Thème Sombre d'excellence "Cadran de précision"
   static ThemeData get darkTheme {
     final base = ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: primaryLight,
+      scaffoldBackgroundColor: AppColors.background,
+      colorScheme: const ColorScheme(
         brightness: Brightness.dark,
-        primary: primaryLight,
-        secondary: secondaryColor,
-        surface: const Color(0xFF1E293B), // Ardoise foncée
-        surfaceContainerHighest: const Color(0xFF334155),
-        onSurface: const Color(0xFFF8FAFC),
-        outline: const Color(0xFF475569),
+        primary: AppColors.accentPrimary,
+        onPrimary: AppColors.background,
+        primaryContainer: AppColors.surfaceVariant,
+        onPrimaryContainer: AppColors.textPrimary,
+        secondary: AppColors.saphir,
+        onSecondary: AppColors.textPrimary,
+        surface: AppColors.surface,
+        onSurface: AppColors.textPrimary,
+        surfaceContainerHighest: AppColors.surfaceVariant,
+        onSurfaceVariant: AppColors.textSecondary,
+        outline: AppColors.border,
+        outlineVariant: AppColors.border,
+        error: AppColors.rubis,
+        onError: AppColors.textPrimary,
       ),
     );
 
     return base.copyWith(
-      scaffoldBackgroundColor: const Color(0xFF0F172A),
       appBarTheme: const AppBarTheme(
         centerTitle: false,
         elevation: 0,
-        backgroundColor: Color(0xFF0F172A),
-        foregroundColor: Color(0xFFF8FAFC),
+        backgroundColor: AppColors.background,
+        foregroundColor: AppColors.textPrimary,
         titleTextStyle: TextStyle(
-          color: Color(0xFFF8FAFC),
+          color: AppColors.textPrimary,
           fontSize: 20,
           fontWeight: FontWeight.w700,
           letterSpacing: -0.5,
         ),
       ),
       cardTheme: CardThemeData(
-        color: const Color(0xFF1E293B),
+        color: AppColors.surface,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFF334155), width: 1),
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: AppColors.border, width: 1),
         ),
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       ),
-      floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: primaryLight,
-        foregroundColor: Colors.white,
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: AppColors.accentPrimary,
+        foregroundColor: AppColors.background,
         elevation: 3,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.all(Radius.circular(16)),
         ),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: AppColors.border,
+        thickness: 1,
+        space: 1,
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: AppColors.border, width: 1),
+        ),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: AppColors.surface,
+        modalBackgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: AppColors.surfaceVariant,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.accentPrimary, width: 1.5),
+        ),
+        hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
+        labelStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
       ),
     );
   }
+
+  /// Thème clair rétro-compatible (adapté avec les accents chauds et contrastes)
+  static ThemeData get lightTheme => darkTheme;
 }

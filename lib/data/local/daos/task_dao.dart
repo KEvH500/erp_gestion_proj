@@ -6,14 +6,16 @@ part 'task_dao.g.dart';
 class TaskWithRecurrence {
   final Task task;
   final RecurrenceRuleEntry? recurrenceRule;
+  final List<RecurrenceExceptionEntry> exceptions;
 
   TaskWithRecurrence({
     required this.task,
     this.recurrenceRule,
+    this.exceptions = const [],
   });
 }
 
-@DriftAccessor(tables: [Tasks, Projects, RecurrenceRules])
+@DriftAccessor(tables: [Tasks, Projects, RecurrenceRules, RecurrenceExceptions])
 class TaskDao extends DatabaseAccessor<AppDatabase> with _$TaskDaoMixin {
   TaskDao(super.db);
 
@@ -43,11 +45,22 @@ class TaskDao extends DatabaseAccessor<AppDatabase> with _$TaskDaoMixin {
         OrderingTerm.asc(tasks.startMinute),
       ]);
 
-    return query.watch().map((rows) {
+    return query.watch().asyncMap((rows) async {
+      final taskIds = rows.map((r) => r.readTable(tasks).id).toList();
+      final allExceptions = taskIds.isNotEmpty
+          ? await (select(recurrenceExceptions)
+                ..where((e) => e.taskId.isIn(taskIds)))
+              .get()
+          : <RecurrenceExceptionEntry>[];
+
       return rows.map((row) {
+        final task = row.readTable(tasks);
+        final taskExceptions =
+            allExceptions.where((e) => e.taskId == task.id).toList();
         return TaskWithRecurrence(
-          task: row.readTable(tasks),
+          task: task,
           recurrenceRule: row.readTableOrNull(recurrenceRules),
+          exceptions: taskExceptions,
         );
       }).toList();
     });
@@ -101,10 +114,21 @@ class TaskDao extends DatabaseAccessor<AppDatabase> with _$TaskDaoMixin {
       ]);
 
     final rows = await query.get();
+    final taskIds = rows.map((r) => r.readTable(tasks).id).toList();
+    final allExceptions = taskIds.isNotEmpty
+        ? await (select(recurrenceExceptions)
+              ..where((e) => e.taskId.isIn(taskIds)))
+            .get()
+        : <RecurrenceExceptionEntry>[];
+
     return rows.map((row) {
+      final task = row.readTable(tasks);
+      final taskExceptions =
+          allExceptions.where((e) => e.taskId == task.id).toList();
       return TaskWithRecurrence(
-        task: row.readTable(tasks),
+        task: task,
         recurrenceRule: row.readTableOrNull(recurrenceRules),
+        exceptions: taskExceptions,
       );
     }).toList();
   }
@@ -118,6 +142,39 @@ class TaskDao extends DatabaseAccessor<AppDatabase> with _$TaskDaoMixin {
 
   Future<Task?> getTaskById(int id) {
     return (select(tasks)..where((t) => t.id.equals(id))).getSingleOrNull();
+  }
+
+  // Exceptions de récurrence
+  Future<int> upsertException(RecurrenceExceptionsCompanion exception) {
+    return into(recurrenceExceptions).insertOnConflictUpdate(exception);
+  }
+
+  Future<List<RecurrenceExceptionEntry>> getExceptionsForTask(int taskId) {
+    return (select(recurrenceExceptions)..where((e) => e.taskId.equals(taskId)))
+        .get();
+  }
+
+  Future<RecurrenceExceptionEntry?> getException(
+      int taskId, DateTime originalDate) {
+    final normalized =
+        DateTime(originalDate.year, originalDate.month, originalDate.day);
+    return (select(recurrenceExceptions)
+          ..where((e) =>
+              e.taskId.equals(taskId) & e.originalDate.equals(normalized)))
+        .getSingleOrNull();
+  }
+
+  Future<int> deleteException(int id) {
+    return (delete(recurrenceExceptions)..where((e) => e.id.equals(id))).go();
+  }
+
+  Future<int> deleteExceptionByOriginalDate(int taskId, DateTime originalDate) {
+    final normalized =
+        DateTime(originalDate.year, originalDate.month, originalDate.day);
+    return (delete(recurrenceExceptions)
+          ..where((e) =>
+              e.taskId.equals(taskId) & e.originalDate.equals(normalized)))
+        .go();
   }
 
   // CRUD

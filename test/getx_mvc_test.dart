@@ -13,6 +13,7 @@ import 'package:erp_gestion_proj/modules/goals/goals_controller.dart';
 import 'package:erp_gestion_proj/modules/unplanned_tasks/unplanned_tasks_controller.dart';
 import 'package:erp_gestion_proj/models/activity.dart';
 import 'package:erp_gestion_proj/models/recurrence_rule.dart';
+import 'package:erp_gestion_proj/models/recurrence_exception.dart';
 import 'package:erp_gestion_proj/models/unplanned_task.dart';
 import 'package:erp_gestion_proj/models/goal.dart';
 import 'package:erp_gestion_proj/services/recurrence_engine.dart';
@@ -23,13 +24,24 @@ class FakeActivityRepository implements IActivityRepository {
   @override
   List<Activity> getAllActivities() => List.from(_list);
   @override
-  List<Activity> getActivitiesForDate(DateTime date) => _list
-      .where((a) => RecurrenceEngine.occursOnDate(
-            startDate: a.startDate,
-            rule: a.recurrenceRule,
-            targetDate: date,
-          ))
-      .toList();
+  List<Activity> getActivitiesForDate(DateTime date) {
+    final activities = <Activity>[];
+    for (final act in _list) {
+      final occurrence = RecurrenceEngine.getOccurrenceForDate(
+        activity: act,
+        targetDate: date,
+      );
+      if (occurrence != null) {
+        activities.add(occurrence);
+      }
+    }
+    activities.sort((a, b) {
+      final aStart = a.startHour * 60 + a.startMinute;
+      final bStart = b.startHour * 60 + b.startMinute;
+      return aStart.compareTo(bStart);
+    });
+    return activities;
+  }
   @override
   List<Activity> getActivitiesForDay(int dayOfWeek) =>
       _list.where((a) => a.dayOfWeek == dayOfWeek).toList();
@@ -55,6 +67,43 @@ class FakeActivityRepository implements IActivityRepository {
   }
   @override
   Future<void> clearAllActivities() async => _list.clear();
+
+  @override
+  Future<void> addRecurrenceException(String activityId, RecurrenceException exception) async {
+    final a = getActivityById(activityId);
+    if (a == null) return;
+    final updatedExceptions = List<RecurrenceException>.from(a.exceptions)
+      ..removeWhere((e) =>
+          e.originalDate.year == exception.originalDate.year &&
+          e.originalDate.month == exception.originalDate.month &&
+          e.originalDate.day == exception.originalDate.day)
+      ..add(exception);
+    await updateActivity(a.copyWith(exceptions: updatedExceptions));
+  }
+
+  @override
+  Future<void> removeRecurrenceException(String activityId, DateTime originalDate) async {
+    final a = getActivityById(activityId);
+    if (a == null) return;
+    final updatedExceptions = List<RecurrenceException>.from(a.exceptions)
+      ..removeWhere((e) =>
+          e.originalDate.year == originalDate.year &&
+          e.originalDate.month == originalDate.month &&
+          e.originalDate.day == originalDate.day);
+    await updateActivity(a.copyWith(exceptions: updatedExceptions));
+  }
+
+  @override
+  Future<void> detachOccurrence(String activityId, DateTime originalDate, Activity detachedActivity) async {
+    await addActivity(detachedActivity);
+    final exception = RecurrenceException(
+      taskId: activityId,
+      originalDate: originalDate,
+      isDetached: true,
+      detachedTaskId: detachedActivity.id,
+    );
+    await addRecurrenceException(activityId, exception);
+  }
 }
 
 class FakeUnplannedTaskRepository implements IUnplannedTaskRepository {

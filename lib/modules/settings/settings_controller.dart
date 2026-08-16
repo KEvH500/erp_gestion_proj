@@ -15,11 +15,46 @@ class SettingsController extends BaseController {
   final allReminders = <Map<String, dynamic>>[].obs;
   final isLoadingConfig = false.obs;
 
+  // Statuts de fiabilité des alarmes & batterie
+  final exactAlarmGranted = true.obs;
+  final batteryOptimizationIgnored = true.obs;
+
   @override
   void onInit() {
     super.onInit();
     _loadThemeMode();
     loadSqliteConfig();
+    checkAlarmReliabilityStatus();
+  }
+
+  Future<void> checkAlarmReliabilityStatus() async {
+    try {
+      exactAlarmGranted.value = await notificationService.canScheduleExactAlarms();
+      batteryOptimizationIgnored.value =
+          await notificationService.isBatteryOptimizationIgnored();
+    } catch (_) {}
+  }
+
+  Future<void> requestExactAlarms() async {
+    await notificationService.requestExactAlarmsPermission();
+    await checkAlarmReliabilityStatus();
+  }
+
+  Future<void> requestIgnoreBatteryOptimizations() async {
+    await notificationService.requestIgnoreBatteryOptimizations();
+    await checkAlarmReliabilityStatus();
+  }
+
+  Future<void> rescheduleAllNotificationsNow() async {
+    final acts = activityRepo.getAllActivities();
+    await notificationService.rescheduleAllActivities(acts);
+    Get.snackbar(
+      'Alarmes replanifiées',
+      'Toutes les alarmes pour les 30 prochains jours ont été recalculées et programmées.',
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: Colors.green.shade700,
+      colorText: Colors.white,
+    );
   }
 
   void _loadThemeMode() {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../models/activity.dart';
+import '../../widgets/recurrence/shift_occurrence_modal.dart';
 import '../unplanned_tasks/widgets/quick_task_sheet.dart';
 import '../unplanned_tasks/widgets/unplanned_task_list_widget.dart';
 import 'day_controller.dart';
@@ -241,6 +242,31 @@ class DayView extends GetView<DayController> {
                   ],
                 ],
               ),
+              if (activity.isRecurring) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.sync_rounded, size: 16, color: Colors.blueAccent),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Série récurrente : ${activity.recurrenceRule?.humanReadableDescription ?? "Oui"}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               if (activity.description != null && activity.description!.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text(
@@ -249,6 +275,28 @@ class DayView extends GetView<DayController> {
                 ),
               ],
               const SizedBox(height: 20),
+              if (activity.isRecurring) ...[
+                FilledButton.tonalIcon(
+                  onPressed: () {
+                    Get.back();
+                    ShiftOccurrenceModal.show(
+                      context: context,
+                      activity: activity,
+                      occurrenceDate: controller.selectedDate.value,
+                      onUpdated: controller.loadDayData,
+                    );
+                  },
+                  icon: const Icon(Icons.schedule_send_rounded),
+                  label: const Text('Décaler / Déplacer cette occurrence'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               Row(
                 children: [
                   Expanded(
@@ -280,7 +328,61 @@ class DayView extends GetView<DayController> {
                   IconButton.filledTonal(
                     onPressed: () {
                       Get.back();
-                      controller.deleteActivity(activity.id);
+                      if (activity.isRecurring) {
+                        Get.bottomSheet(
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                            ),
+                            child: SafeArea(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  const Text(
+                                    'Supprimer une tâche récurrente',
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'Voulez-vous supprimer uniquement cette occurrence ou toute la série ?',
+                                    style: TextStyle(fontSize: 13),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  FilledButton.tonal(
+                                    onPressed: () {
+                                      Get.back();
+                                      controller.cancelOccurrence(
+                                        activity.id,
+                                        controller.selectedDate.value,
+                                      );
+                                    },
+                                    child: const Text('Cette occurrence uniquement'),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  FilledButton(
+                                    onPressed: () {
+                                      Get.back();
+                                      controller.deleteActivity(activity.id);
+                                    },
+                                    style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                                    child: const Text('Toute la série'),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  TextButton(
+                                    onPressed: () => Get.back(),
+                                    child: const Text('Annuler'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      } else {
+                        controller.deleteActivity(activity.id);
+                      }
                     },
                     icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
                     tooltip: 'Supprimer',
@@ -506,6 +608,14 @@ class DayView extends GetView<DayController> {
                                   child: _ActivityTimeBlock(
                                     activity: activity,
                                     onTap: () => _showActivityDetails(context, activity),
+                                    onLongPress: activity.isRecurring
+                                        ? () => ShiftOccurrenceModal.show(
+                                              context: context,
+                                              activity: activity,
+                                              occurrenceDate: controller.selectedDate.value,
+                                              onUpdated: controller.loadDayData,
+                                            )
+                                        : null,
                                   ),
                                 );
                               }).toList(),
@@ -622,10 +732,12 @@ class _DayTabItem extends StatelessWidget {
 class _ActivityTimeBlock extends StatelessWidget {
   final Activity activity;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   const _ActivityTimeBlock({
     required this.activity,
     required this.onTap,
+    this.onLongPress,
   });
 
   @override
@@ -634,6 +746,7 @@ class _ActivityTimeBlock extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
+      onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -673,8 +786,14 @@ class _ActivityTimeBlock extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (activity.isCompleted)
+                if (activity.isRecurring) ...[
+                  const SizedBox(width: 4),
+                  const Icon(Icons.sync_rounded, size: 12, color: Colors.blueAccent),
+                ],
+                if (activity.isCompleted) ...[
+                  const SizedBox(width: 4),
                   const Icon(Icons.check_circle_rounded, size: 14, color: Colors.green),
+                ],
               ],
             ),
             Text(
