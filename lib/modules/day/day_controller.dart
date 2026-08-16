@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -14,6 +15,8 @@ class DayController extends BaseController {
   final activities = <Activity>[].obs;
   final unplannedTasks = <UnplannedTask>[].obs;
   final isLoading = false.obs;
+  final currentMinuteOfDay = (DateTime.now().hour * 60 + DateTime.now().minute).obs;
+  Timer? _minuteTimer;
 
   final ScrollController scrollController = ScrollController();
 
@@ -27,10 +30,15 @@ class DayController extends BaseController {
     super.onInit();
     _initParameters();
     loadDayData();
+    _minuteTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      final now = DateTime.now();
+      currentMinuteOfDay.value = now.hour * 60 + now.minute;
+    });
   }
 
   @override
   void onClose() {
+    _minuteTimer?.cancel();
     scrollController.dispose();
     super.onClose();
   }

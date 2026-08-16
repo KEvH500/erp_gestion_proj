@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// Classe centralisée des jetons de couleurs du thème "Cadran de précision"
 abstract class AppColors {
@@ -75,15 +76,34 @@ class AppTheme {
       ),
     );
 
+    final interTextTheme = GoogleFonts.interTextTheme(base.textTheme);
+
     return base.copyWith(
-      appBarTheme: const AppBarTheme(
+      textTheme: interTextTheme.copyWith(
+        displayLarge: GoogleFonts.fraunces(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
+        displayMedium: GoogleFonts.fraunces(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
+        displaySmall: GoogleFonts.fraunces(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
+        headlineLarge: GoogleFonts.fraunces(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
+        headlineMedium: GoogleFonts.fraunces(color: AppColors.textPrimary, fontWeight: FontWeight.w700),
+        headlineSmall: GoogleFonts.fraunces(color: AppColors.textPrimary, fontWeight: FontWeight.w700),
+        titleLarge: GoogleFonts.fraunces(color: AppColors.textPrimary, fontWeight: FontWeight.w700, fontSize: 20),
+        titleMedium: GoogleFonts.inter(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 16),
+        titleSmall: GoogleFonts.inter(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14),
+        bodyLarge: GoogleFonts.inter(color: AppColors.textPrimary, fontSize: 15),
+        bodyMedium: GoogleFonts.inter(color: AppColors.textPrimary, fontSize: 13),
+        bodySmall: GoogleFonts.inter(color: AppColors.textSecondary, fontSize: 11),
+        labelLarge: GoogleFonts.inter(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 14),
+        labelMedium: GoogleFonts.inter(color: AppColors.textSecondary, fontWeight: FontWeight.w600, fontSize: 12),
+        labelSmall: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 10),
+      ),
+      appBarTheme: AppBarTheme(
         centerTitle: false,
         elevation: 0,
         backgroundColor: AppColors.background,
         foregroundColor: AppColors.textPrimary,
-        titleTextStyle: TextStyle(
+        titleTextStyle: GoogleFonts.fraunces(
           color: AppColors.textPrimary,
-          fontSize: 20,
+          fontSize: 22,
           fontWeight: FontWeight.w700,
           letterSpacing: -0.5,
         ),
@@ -139,8 +159,8 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.accentPrimary, width: 1.5),
         ),
-        hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
-        labelStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+        hintStyle: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 14),
+        labelStyle: GoogleFonts.inter(color: AppColors.textSecondary, fontSize: 14),
       ),
     );
   }
