@@ -5,6 +5,10 @@ import 'package:uuid/uuid.dart';
 import '../../app/controllers/base_controller.dart';
 import '../../models/activity.dart';
 import '../../models/recurrence_rule.dart';
+import '../../services/overlap_checker.dart';
+import '../../services/recurrence_engine.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/core/app_text.dart';
 import 'task_form_model.dart';
 
 /// Contrôleur GetX pour le formulaire d'activité / tâche utilisant reactive_forms
@@ -153,6 +157,58 @@ class ActivityFormController extends BaseController {
       );
     }
 
+    // 1. Contrôle de non-chevauchement des créneaux horaires
+    final allActivities = activityRepo.getAllActivities();
+    final checkDates = <DateTime>[startDate];
+
+    if (isRecurring && recurrenceRule != null) {
+      final occurrences = RecurrenceEngine.generateOccurrences(
+        activity: Activity(
+          id: existingActivity?.id ?? 'temp-candidate',
+          title: title,
+          startDate: startDate,
+          startHour: startTime.hour,
+          startMinute: startTime.minute,
+          endHour: endTime.hour,
+          endMinute: endTime.minute,
+          category: category,
+          recurrenceRule: recurrenceRule,
+          isLocked: isLocked,
+        ),
+        rangeStart: startDate,
+        rangeEnd: startDate.add(const Duration(days: 35)),
+      );
+      for (final occ in occurrences) {
+        checkDates.add(occ.startDate);
+      }
+    }
+
+    final allBlockingConflicts = <Activity>[];
+    for (final checkDate in checkDates.toSet()) {
+      final checkResult = OverlapChecker.findOverlaps(
+        targetDate: checkDate,
+        startHour: startTime.hour,
+        startMinute: startTime.minute,
+        endHour: endTime.hour,
+        endMinute: endTime.minute,
+        isLocked: isLocked,
+        allActivities: allActivities,
+        excludeActivityId: existingActivity?.id,
+      );
+      if (checkResult.hasBlockingConflicts) {
+        for (final conflict in checkResult.blockingConflicts) {
+          if (!allBlockingConflicts.any((c) => c.id == conflict.id)) {
+            allBlockingConflicts.add(conflict);
+          }
+        }
+      }
+    }
+
+    if (allBlockingConflicts.isNotEmpty) {
+      _showConflictWarningSheet(allBlockingConflicts);
+      return;
+    }
+
     isSaving.value = true;
     try {
       if (isEditing.value && existingActivity != null) {
@@ -211,5 +267,134 @@ class ActivityFormController extends BaseController {
     } finally {
       isSaving.value = false;
     }
+  }
+
+  /// Affiche le panneau modal d'avertissement de conflit bloquant
+  void _showConflictWarningSheet(List<Activity> conflicts) {
+    Get.bottomSheet(
+      Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          border: Border(top: BorderSide(color: AppColors.border, width: 1)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.rubis.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.warning_amber_rounded, color: AppColors.rubis, size: 22),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: AppText.heading(
+                    'Conflit d\'horaires détecté',
+                    fontSize: 17,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const AppText.body(
+              'Cette tâche chevauche une ou plusieurs activités existantes sur le même créneau :',
+              color: AppColors.textSecondary,
+              fontSize: 13,
+            ),
+            const SizedBox(height: 12),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 180),
+              child: ListView(
+                shrinkWrap: true,
+                children: conflicts.map((c) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceVariant,
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(8),
+                        bottomRight: Radius.circular(8),
+                      ),
+                      border: Border(
+                        left: BorderSide(color: c.category.color, width: 3.5),
+                        top: const BorderSide(color: AppColors.border, width: 0.5),
+                        right: const BorderSide(color: AppColors.border, width: 0.5),
+                        bottom: const BorderSide(color: AppColors.border, width: 0.5),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: AppText.body(
+                            c.title,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                        AppText.time(
+                          c.timeRangeFormatted,
+                          color: c.category.color,
+                          fontSize: 12,
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const AppText.caption(
+              'Modifiez l\'horaire ou activez le verrouillage pour autoriser le chevauchement.',
+              color: AppColors.textMuted,
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Get.back(),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.border),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                    ),
+                    child: const AppText.label('Modifier l\'horaire', color: AppColors.textPrimary),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () {
+                      Get.back();
+                      // Activer le verrouillage pour déroger sciemment
+                      form.control('isLocked').value = true;
+                      saveActivity();
+                    },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.accentPrimary,
+                      foregroundColor: AppColors.background,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                    ),
+                    child: const AppText.label(
+                      'Verrouiller & Créer',
+                      color: AppColors.background,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      isScrollControlled: true,
+    );
   }
 }
