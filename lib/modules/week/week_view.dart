@@ -289,51 +289,38 @@ class WeekView extends GetView<WeekController> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                color: AppColors.border,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.chevron_left_rounded),
+                  icon: const Icon(Icons.chevron_left_rounded, color: AppColors.textPrimary),
                   tooltip: 'Semaine précédente',
                   onPressed: controller.previousWeek,
                 ),
                 Obx(
                   () => Column(
                     children: [
-                      Text(
+                      AppText.heading(
                         'Semaine du ${controller.startFormatted} au ${controller.endFormatted}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
+                        fontSize: 14,
                       ),
                       const SizedBox(height: 2),
-                      Text(
+                      AppText.label(
                         controller.weekSubtitle,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        fontSize: 11,
+                        color: AppColors.accentPrimary,
                       ),
                     ],
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.chevron_right_rounded),
+                  icon: const Icon(Icons.chevron_right_rounded, color: AppColors.textPrimary),
                   tooltip: 'Semaine suivante',
                   onPressed: controller.nextWeek,
                 ),
@@ -453,8 +440,6 @@ class _DayCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final dayNumberFormat = DateFormat('d MMMM', 'fr_FR');
     final formattedDate = dayNumberFormat.format(dayDate);
 
@@ -462,14 +447,13 @@ class _DayCard extends StatelessWidget {
 
     return Card(
       elevation: 0,
+      color: AppColors.surface,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: isToday
-              ? theme.colorScheme.primary
-              : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
-          width: isToday ? 2 : 1,
+          color: isToday ? AppColors.accentPrimary : AppColors.border,
+          width: isToday ? 1.5 : 0.8,
         ),
       ),
       child: InkWell(
@@ -491,24 +475,21 @@ class _DayCard extends StatelessWidget {
                         height: 36,
                         decoration: BoxDecoration(
                           color: isToday
-                              ? theme.colorScheme.primary
-                              : (isDark
-                                  ? const Color(0xFF334155)
-                                  : const Color(0xFFEEF2F6)),
+                              ? AppColors.accentPrimary
+                              : AppColors.surfaceVariant,
                           shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isToday ? AppColors.accentPrimary : AppColors.border,
+                            width: 0.5,
+                          ),
                         ),
                         alignment: Alignment.center,
-                        child: Text(
+                        child: AppText.heading(
                           _dayName.substring(0, 1),
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                            color: isToday
-                                ? Colors.white
-                                : (isDark
-                                    ? Colors.white
-                                    : const Color(0xFF334155)),
-                          ),
+                          fontSize: 15,
+                          color: isToday
+                              ? AppColors.background
+                              : AppColors.textPrimary,
                         ),
                       ),
                       const SizedBox(width: 12),
