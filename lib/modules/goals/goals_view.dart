@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../../app/router/app_router.dart';
 import '../../models/goal.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/core/app_text.dart';
 import 'widgets/add_edit_goal_modal.dart';
 import 'goals_controller.dart';
 
@@ -12,9 +14,6 @@ class GoalsView extends GetView<GoalsController> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
     final dateFormat = DateFormat('EEEE d MMMM yyyy', 'fr_FR');
     final formattedDate = dateFormat.format(controller.selectedDate.value);
     final capitalizedDate = formattedDate[0].toUpperCase() + formattedDate.substring(1);
@@ -24,14 +23,8 @@ class GoalsView extends GetView<GoalsController> {
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Objectifs & Suivi',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20),
-            ),
-            Text(
-              'Temps plein, temps limité & indicateurs',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-            ),
+            AppText.heading('Objectifs & Suivi', fontSize: 18),
+            AppText.caption('Temps plein, temps limité & indicateurs'),
           ],
         ),
         actions: [
@@ -40,13 +33,13 @@ class GoalsView extends GetView<GoalsController> {
             child: FilledButton.tonalIcon(
               onPressed: () => Get.toNamed(Routes.DAILY_REPORT),
               style: FilledButton.styleFrom(
-                backgroundColor: theme.colorScheme.primaryContainer,
-                foregroundColor: theme.colorScheme.primary,
+                backgroundColor: AppColors.surfaceVariant,
+                foregroundColor: AppColors.accentPrimary,
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 visualDensity: VisualDensity.compact,
               ),
-              icon: const Icon(Icons.analytics_outlined, size: 16),
-              label: const Text('Rapport 📊', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              icon: const Icon(Icons.analytics_outlined, size: 16, color: AppColors.accentPrimary),
+              label: const AppText.label('Rapport 📊', fontSize: 12, color: AppColors.accentPrimary),
             ),
           ),
         ],
@@ -65,17 +58,9 @@ class GoalsView extends GetView<GoalsController> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: isDark
-                      ? [const Color(0xFF1E293B), const Color(0xFF0F172A)]
-                      : [theme.colorScheme.primary.withValues(alpha: 0.08), Colors.white],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: AppColors.surface,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-                ),
+                border: Border.all(color: AppColors.border),
               ),
               child: Row(
                 children: [
@@ -88,14 +73,15 @@ class GoalsView extends GetView<GoalsController> {
                         CircularProgressIndicator(
                           value: overallRate,
                           strokeWidth: 8,
-                          backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
+                          backgroundColor: AppColors.surfaceVariant,
                           color: overallRate >= 1.0
-                              ? Colors.green
-                              : (overallRate >= 0.5 ? Colors.amber : theme.colorScheme.primary),
+                              ? AppColors.jade
+                              : (overallRate >= 0.5 ? AppColors.topaze : AppColors.accentPrimary),
                         ),
-                        Text(
+                        AppText.time(
                           '${(overallRate * 100).toInt()}%',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
                         ),
                       ],
                     ),
@@ -105,20 +91,21 @@ class GoalsView extends GetView<GoalsController> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(capitalizedDate, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
+                        AppText.caption(capitalizedDate, color: AppColors.textSecondary),
                         const SizedBox(height: 4),
-                        Text(
+                        AppText.body(
                           '$achievedGoals sur $totalGoals accomplis',
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 17,
                         ),
                         const SizedBox(height: 4),
-                        Text(
+                        AppText.caption(
                           overallRate >= 1.0
                               ? 'Tous vos objectifs sont atteints ! 🌟'
                               : (overallRate >= 0.5
                                   ? 'Excellente progression, continuez ! 🚀'
                                   : 'Définissez vos priorités du jour.'),
-                          style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
+                          color: AppColors.textMuted,
                         ),
                       ],
                     ),
