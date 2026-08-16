@@ -15,6 +15,8 @@ import '../../modules/daily_report/daily_report_binding.dart';
 import '../../modules/daily_report/daily_report_view.dart';
 import '../../modules/unplanned_tasks/unplanned_tasks_binding.dart';
 import '../../modules/unplanned_tasks/unplanned_tasks_view.dart';
+import '../../modules/export/export_binding.dart';
+import '../../modules/export/export_view.dart';
 
 abstract class AppRoutes {
   static const WEEK = '/';
@@ -25,6 +27,7 @@ abstract class AppRoutes {
   static const GOALS = '/goals';
   static const DAILY_REPORT = '/daily-report';
   static const UNPLANNED_TASKS = '/unplanned-tasks';
+  static const EXPORT = '/export';
 }
 
 typedef Routes = AppRoutes;
@@ -74,6 +77,11 @@ class AppRouter {
       name: AppRoutes.UNPLANNED_TASKS,
       page: () => const UnplannedTasksView(),
       binding: UnplannedTasksBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.EXPORT,
+      page: () => const ExportView(),
+      binding: ExportBinding(),
     ),
   ];
 }

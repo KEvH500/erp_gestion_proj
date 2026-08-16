@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import '../../app/router/app_router.dart';
 import '../../models/activity.dart';
 import '../../models/unplanned_task.dart';
 import '../../theme/app_theme.dart';
@@ -265,6 +266,11 @@ class WeekView extends GetView<WeekController> {
             icon: const Icon(Icons.analytics_outlined),
             tooltip: 'Rapport de journée',
             onPressed: controller.goToDailyReport,
+          ),
+          IconButton(
+            icon: const Icon(Icons.file_download_outlined),
+            tooltip: 'Export hebdomadaire',
+            onPressed: () => Get.toNamed(Routes.EXPORT),
           ),
           Obx(() {
             if (controller.weekOffset.value == 0) return const SizedBox.shrink();
