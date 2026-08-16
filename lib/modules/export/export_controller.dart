@@ -151,10 +151,11 @@ class ExportController extends BaseController {
       final file = File('${tempDir.path}/$fileName');
       await file.writeAsString(csvString);
 
-      await Share.shareXFiles(
-        [XFile(file.path, mimeType: 'text/csv')],
-        text: 'Export emploi du temps ($weekTitleFormatted)',
-        subject: 'Export Hebdomadaire - $weekTitleFormatted',
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, mimeType: 'text/csv')],
+          subject: 'Export Hebdomadaire - $weekTitleFormatted',
+        ),
       );
     } catch (e) {
       Get.snackbar(

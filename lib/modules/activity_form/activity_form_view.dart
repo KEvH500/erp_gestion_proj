@@ -250,7 +250,7 @@ class ActivityFormView extends GetView<ActivityFormController> {
                           ),
                         ),
                         value: isLocked,
-                        activeColor: AppColors.accentPrimary,
+                        activeThumbColor: AppColors.accentPrimary,
                         onChanged: (val) => control.value = val,
                       ),
                       if (isLocked) ...[
