@@ -1,30 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:reactive_forms/reactive_forms.dart';
 import 'package:uuid/uuid.dart';
 import '../../../app/controllers/base_controller.dart';
 import '../../../models/activity.dart';
 import '../../../models/unplanned_task.dart';
+import '../../../widgets/form/app_time_picker_field.dart';
 import 'quick_task_sheet.dart';
 import 'task_comment_modal.dart';
 
-/// Contrôleur GetX pour la liste et les interactions des tâches imprévues
+/// Contrôleur GetX pour la liste et les interactions des tâches imprévues avec reactive_forms
 class UnplannedTaskListController extends BaseController {
-
   final currentDate = DateTime.now().obs;
   final isExpanded = true.obs;
   final tasks = <UnplannedTask>[].obs;
   final overdueTasks = <UnplannedTask>[].obs;
 
-  late final TextEditingController inlineController;
-  final inlineFocus = FocusNode();
+  late final FormControl<String> inlineControl;
 
   VoidCallback? onTasksChangedCallback;
 
-  void init({required DateTime date, bool initiallyExpanded = true, VoidCallback? onTasksChanged}) {
+  void init({
+    required DateTime date,
+    bool initiallyExpanded = true,
+    VoidCallback? onTasksChanged,
+  }) {
     currentDate.value = date;
     isExpanded.value = initiallyExpanded;
     onTasksChangedCallback = onTasksChanged;
-    inlineController = TextEditingController();
+    inlineControl = FormControl<String>(value: '');
     loadTasks();
   }
 
@@ -37,8 +41,7 @@ class UnplannedTaskListController extends BaseController {
 
   @override
   void onClose() {
-    inlineController.dispose();
-    inlineFocus.dispose();
+    inlineControl.dispose();
     super.onClose();
   }
 
@@ -47,7 +50,8 @@ class UnplannedTaskListController extends BaseController {
   void loadTasks() {
     final dayTasks = unplannedRepo.getTasksForDate(currentDate.value);
     final all = unplannedRepo.getAllTasks();
-    final todayStart = DateTime(currentDate.value.year, currentDate.value.month, currentDate.value.day);
+    final todayStart =
+        DateTime(currentDate.value.year, currentDate.value.month, currentDate.value.day);
 
     final overdue = all.where((t) {
       if (t.isCompleted) return false;
@@ -61,11 +65,10 @@ class UnplannedTaskListController extends BaseController {
   }
 
   Future<void> submitInline() async {
-    final title = inlineController.text.trim();
+    final title = inlineControl.value?.trim() ?? '';
     if (title.isEmpty) return;
 
-    inlineController.clear();
-    inlineFocus.unfocus();
+    inlineControl.reset();
 
     final task = UnplannedTask(
       id: const Uuid().v4(),
@@ -125,77 +128,73 @@ class UnplannedTaskListController extends BaseController {
   }
 
   void showConvertDialog(BuildContext context, UnplannedTask task) {
-    TimeOfDay startTime = const TimeOfDay(hour: 10, minute: 0);
-    TimeOfDay endTime = const TimeOfDay(hour: 11, minute: 0);
+    final form = FormGroup({
+      'startTime': FormControl<TimeOfDay>(
+        value: const TimeOfDay(hour: 10, minute: 0),
+        validators: [Validators.required],
+      ),
+      'endTime': FormControl<TimeOfDay>(
+        value: const TimeOfDay(hour: 11, minute: 0),
+        validators: [Validators.required],
+      ),
+    });
 
     Get.dialog(
-      StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: const Row(
-              children: [
-                Icon(Icons.schedule_send_rounded, color: Colors.blueAccent),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Planifier dans l\'agenda',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      ReactiveForm(
+        formGroup: form,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(
+            children: [
+              Icon(Icons.schedule_send_rounded, color: Colors.blueAccent),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Planifier dans l\'agenda',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Transformer "${task.title}" en créneau fixe dans votre emploi du temps :',
+                style: const TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              const Row(
+                children: [
+                  Expanded(
+                    child: AppTimePickerField(
+                      formControlName: 'startTime',
+                      label: 'Début',
+                      isRequired: true,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Transformer "${task.title}" en créneau fixe dans votre emploi du temps :',
-                  style: const TextStyle(fontSize: 13),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () async {
-                          final picked = await showTimePicker(context: context, initialTime: startTime);
-                          if (picked != null) {
-                            setDialogState(() => startTime = picked);
-                          }
-                        },
-                        icon: const Icon(Icons.access_time_rounded, size: 16),
-                        label: Text(
-                          'Début : ${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}',
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: AppTimePickerField(
+                      formControlName: 'endTime',
+                      label: 'Fin',
+                      isRequired: true,
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () async {
-                          final picked = await showTimePicker(context: context, initialTime: endTime);
-                          if (picked != null) {
-                            setDialogState(() => endTime = picked);
-                          }
-                        },
-                        icon: const Icon(Icons.timer_outlined, size: 16),
-                        label: Text(
-                          'Fin : ${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}',
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(onPressed: () => Get.back(), child: const Text('Annuler')),
-              ElevatedButton(
-                onPressed: () async {
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Get.back(), child: const Text('Annuler')),
+            ElevatedButton(
+              onPressed: () async {
+                if (form.valid) {
+                  final startTime = form.control('startTime').value as TimeOfDay;
+                  final endTime = form.control('endTime').value as TimeOfDay;
                   Get.back();
+
                   final newActivity = Activity(
                     id: const Uuid().v4(),
                     title: task.title,
@@ -218,12 +217,14 @@ class UnplannedTaskListController extends BaseController {
                     'Activité "${task.title}" ajoutée à l\'emploi du temps !',
                     snackPosition: SnackPosition.BOTTOM,
                   );
-                },
-                child: const Text('Planifier'),
-              ),
-            ],
-          );
-        },
+                } else {
+                  form.markAllAsTouched();
+                }
+              },
+              child: const Text('Planifier'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -244,13 +245,16 @@ class UnplannedTaskListWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Utilisation d'un tag unique basé sur la date pour l'injection GetX
     final tag = 'task_list_${date.year}_${date.month}_${date.day}';
     final controller = Get.put(
       UnplannedTaskListController(),
       tag: tag,
     );
-    controller.init(date: date, initiallyExpanded: initiallyExpanded, onTasksChanged: onTasksChanged);
+    controller.init(
+      date: date,
+      initiallyExpanded: initiallyExpanded,
+      onTasksChanged: onTasksChanged,
+    );
 
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -278,7 +282,8 @@ class UnplannedTaskListWidget extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: (pendingCount > 0 ? Colors.amber : Colors.black).withValues(alpha: isDark ? 0.15 : 0.04),
+              color: (pendingCount > 0 ? Colors.amber : Colors.black)
+                  .withValues(alpha: isDark ? 0.15 : 0.04),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -318,41 +323,31 @@ class UnplannedTaskListWidget extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                           color: Colors.amber.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          '$pendingCount en cours',
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange),
-                        ),
-                      )
-                    else if (tasks.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: Colors.green.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Text(
-                          'Toutes terminées 🎉',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green),
+                          '$pendingCount en attente',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.amber,
+                          ),
                         ),
                       ),
-                    const SizedBox(width: 6),
-                    IconButton(
-                      icon: const Icon(Icons.add_circle_outline_rounded, size: 22),
-                      tooltip: 'Ajout rapide',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      color: theme.colorScheme.primary,
-                      onPressed: () {
-                        QuickTaskSheet.show(context, initialDate: date).then((_) => controller.loadTasks());
-                      },
-                    ),
                     const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline_rounded,
+                          size: 20, color: Colors.amber),
+                      onPressed: () {
+                        QuickTaskSheet.show(context, initialDate: date)
+                            .then((_) => controller.loadTasks());
+                      },
+                      tooltip: 'Ajouter un imprévu',
+                    ),
                     Icon(
-                      isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                      color: theme.colorScheme.onSurfaceVariant,
+                      isExpanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
                       size: 20,
                     ),
                   ],
@@ -360,43 +355,31 @@ class UnplannedTaskListWidget extends StatelessWidget {
               ),
             ),
 
-            // 2. Contenu déroulé
             if (isExpanded) ...[
               const Divider(height: 1),
 
-              // Bannière de report
+              // Alerte Tâches en retard (si date = aujourd'hui)
               if (isToday && overdueTasks.isNotEmpty)
                 Container(
-                  margin: const EdgeInsets.fromLTRB(14, 10, 14, 4),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: isDark ? 0.2 : 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  color: Colors.redAccent.withValues(alpha: 0.12),
                   child: Row(
                     children: [
-                      const Icon(Icons.warning_amber_rounded, size: 20, color: Colors.orange),
+                      const Icon(Icons.warning_amber_rounded, size: 18, color: Colors.redAccent),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${overdueTasks.length} tâche(s) inachevée(s) précédente(s)',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 2),
-                            const Text(
-                              'Les reporter à aujourd\'hui pour ne rien perdre ?',
-                              style: TextStyle(fontSize: 11),
-                            ),
-                          ],
+                        child: Text(
+                          '${overdueTasks.length} tâche(s) des jours précédents non terminée(s)',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.redAccent,
+                          ),
                         ),
                       ),
-                      FilledButton.tonal(
+                      TextButton(
                         onPressed: controller.postponeAllOverdue,
-                        style: FilledButton.styleFrom(
+                        style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           visualDensity: VisualDensity.compact,
                         ),
@@ -406,7 +389,7 @@ class UnplannedTaskListWidget extends StatelessWidget {
                   ),
                 ),
 
-              // Barre de saisie instantanée en ligne
+              // Barre de saisie instantanée en ligne avec ReactiveTextField
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
                 child: Row(
@@ -418,18 +401,22 @@ class UnplannedTaskListWidget extends StatelessWidget {
                           color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: TextField(
-                          controller: controller.inlineController,
-                          focusNode: controller.inlineFocus,
+                        child: ReactiveTextField<String>(
+                          formControl: controller.inlineControl,
                           textInputAction: TextInputAction.done,
                           onSubmitted: (_) => controller.submitInline(),
                           style: const TextStyle(fontSize: 13),
                           decoration: InputDecoration(
                             hintText: '+ Saisie rapide (ex: Rappeler Marc)...',
-                            hintStyle: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
-                            prefixIcon: const Icon(Icons.add_rounded, size: 18, color: Colors.amber),
+                            hintStyle: TextStyle(
+                              fontSize: 12,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                            prefixIcon:
+                                const Icon(Icons.add_rounded, size: 18, color: Colors.amber),
                             border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                            contentPadding:
+                                const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                           ),
                         ),
                       ),
@@ -451,7 +438,11 @@ class UnplannedTaskListWidget extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(14, 4, 14, 12),
                   child: Text(
                     'Aucun imprévu enregistré pour ce jour.',
-                    style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: theme.colorScheme.onSurfaceVariant),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 )
               else
@@ -466,7 +457,8 @@ class UnplannedTaskListWidget extends StatelessWidget {
                     return _TaskRowItem(
                       task: task,
                       onTap: () {
-                        TaskCommentModal.show(context, taskId: task.id).then((_) => controller.loadTasks());
+                        TaskCommentModal.show(context, taskId: task.id)
+                            .then((_) => controller.loadTasks());
                       },
                       onToggle: () => controller.toggleTask(task.id),
                       onPostponeTomorrow: () => controller.postponeTaskToTomorrow(task),
@@ -516,7 +508,9 @@ class _TaskRowItem extends StatelessWidget {
             color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: task.isCompleted ? Colors.transparent : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+              color: task.isCompleted
+                  ? Colors.transparent
+                  : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
             ),
           ),
           child: Row(
@@ -533,11 +527,15 @@ class _TaskRowItem extends StatelessWidget {
                     color: task.isCompleted ? theme.colorScheme.primary : Colors.transparent,
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
-                      color: task.isCompleted ? theme.colorScheme.primary : (isDark ? Colors.grey[500]! : Colors.grey[400]!),
+                      color: task.isCompleted
+                          ? theme.colorScheme.primary
+                          : (isDark ? Colors.grey[500]! : Colors.grey[400]!),
                       width: 1.8,
                     ),
                   ),
-                  child: task.isCompleted ? const Icon(Icons.check_rounded, size: 16, color: Colors.white) : null,
+                  child: task.isCompleted
+                      ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
+                      : null,
                 ),
               ),
               const SizedBox(width: 10),
@@ -571,11 +569,16 @@ class _TaskRowItem extends StatelessWidget {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.chat_bubble_outline_rounded, size: 10, color: Colors.blueAccent),
+                                const Icon(Icons.chat_bubble_outline_rounded,
+                                    size: 10, color: Colors.blueAccent),
                                 const SizedBox(width: 3),
                                 Text(
                                   '${task.comments.length}',
-                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueAccent),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blueAccent,
+                                  ),
                                 ),
                               ],
                             ),
@@ -596,7 +599,11 @@ class _TaskRowItem extends StatelessWidget {
                                 const SizedBox(width: 2),
                                 Text(
                                   'Reporté ${task.postponedCount}x',
-                                  style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.orange),
+                                  style: const TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.orange,
+                                  ),
                                 ),
                               ],
                             ),
@@ -607,7 +614,10 @@ class _TaskRowItem extends StatelessWidget {
                           Expanded(
                             child: Text(
                               task.description!,
-                              style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -632,7 +642,11 @@ class _TaskRowItem extends StatelessWidget {
                     const SizedBox(width: 2),
                     Text(
                       task.priority.label,
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: task.priority.color),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: task.priority.color,
+                      ),
                     ),
                   ],
                 ),
@@ -640,7 +654,11 @@ class _TaskRowItem extends StatelessWidget {
 
               // Menu Popup d'actions
               PopupMenuButton<String>(
-                icon: Icon(Icons.more_vert_rounded, size: 18, color: theme.colorScheme.onSurfaceVariant),
+                icon: Icon(
+                  Icons.more_vert_rounded,
+                  size: 18,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
                 padding: EdgeInsets.zero,
                 onSelected: (value) {
                   if (value == 'comments') onTap();
@@ -654,7 +672,8 @@ class _TaskRowItem extends StatelessWidget {
                     value: 'comments',
                     child: Row(
                       children: [
-                        Icon(Icons.chat_bubble_outline_rounded, size: 18, color: Colors.blueAccent),
+                        Icon(Icons.chat_bubble_outline_rounded,
+                            size: 18, color: Colors.blueAccent),
                         SizedBox(width: 8),
                         Text('Commentaires & Notes'),
                       ],
@@ -664,7 +683,12 @@ class _TaskRowItem extends StatelessWidget {
                     value: 'toggle',
                     child: Row(
                       children: [
-                        Icon(task.isCompleted ? Icons.undo_rounded : Icons.check_circle_outline_rounded, size: 18),
+                        Icon(
+                          task.isCompleted
+                              ? Icons.undo_rounded
+                              : Icons.check_circle_outline_rounded,
+                          size: 18,
+                        ),
                         const SizedBox(width: 8),
                         Text(task.isCompleted ? 'Marquer à faire' : 'Marquer fait'),
                       ],

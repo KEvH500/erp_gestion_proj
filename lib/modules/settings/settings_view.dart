@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:reactive_forms/reactive_forms.dart';
+import '../../widgets/form/app_text_input_field.dart';
 import 'settings_controller.dart';
 
 /// Vue des paramètres avec gestion du thème et configuration dynamique SQLite
@@ -8,114 +10,144 @@ class SettingsView extends GetView<SettingsController> {
 
   void _showEditDayDialog(BuildContext context, Map<String, dynamic> day) {
     final value = day['value'] as int;
-    final labelCtrl = TextEditingController(text: day['label'] as String);
-    final isActive = ((day['is_active'] as int) == 1).obs;
+    final form = FormGroup({
+      'label': FormControl<String>(
+        value: day['label'] as String,
+        validators: [Validators.required, Validators.minLength(1)],
+      ),
+      'isActive': FormControl<bool>(
+        value: (day['is_active'] as int) == 1,
+      ),
+    });
 
     Get.dialog(
-      AlertDialog(
-        title: Text('Modifier ${day['label']}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: labelCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Nom du jour',
-                prefixIcon: Icon(Icons.edit_calendar_rounded),
+      ReactiveForm(
+        formGroup: form,
+        child: AlertDialog(
+          title: Text('Modifier ${day['label']}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const AppTextInputField(
+                formControlName: 'label',
+                label: 'Nom du jour',
+                prefixIcon: Icons.edit_calendar_rounded,
+                isRequired: true,
               ),
+              const SizedBox(height: 12),
+              ReactiveValueListenableBuilder<bool>(
+                formControlName: 'isActive',
+                builder: (context, control, child) {
+                  return SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Activer ce jour'),
+                    value: control.value ?? true,
+                    onChanged: (val) => control.value = val,
+                  );
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Get.back(),
+              child: const Text('Annuler'),
             ),
-            const SizedBox(height: 12),
-            Obx(
-              () => SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Activer ce jour'),
-                value: isActive.value,
-                onChanged: (val) => isActive.value = val,
-              ),
+            ElevatedButton(
+              onPressed: () {
+                if (form.valid) {
+                  final newLabel = (form.control('label').value as String).trim();
+                  final isActive = (form.control('isActive').value as bool?) ?? true;
+                  Get.back();
+                  controller.updateDay(value, newLabel, isActive);
+                } else {
+                  form.markAllAsTouched();
+                }
+              },
+              child: const Text('Enregistrer'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final newLabel = labelCtrl.text.trim();
-              if (newLabel.isNotEmpty) {
-                Get.back();
-                controller.updateDay(value, newLabel, isActive.value);
-              }
-            },
-            child: const Text('Enregistrer'),
-          ),
-        ],
       ),
     );
   }
 
   void _showAddReminderDialog(BuildContext context) {
-    final minCtrl = TextEditingController();
-    final labelCtrl = TextEditingController();
+    final form = FormGroup({
+      'minutes': FormControl<String>(
+        value: '',
+        validators: [Validators.required, Validators.number(), Validators.min(1)],
+      ),
+      'label': FormControl<String>(
+        value: '',
+        validators: [Validators.required, Validators.minLength(1)],
+      ),
+    });
+
+    // Écouter les changements de minutes pour pré-remplir intelligemment le libellé
+    form.control('minutes').valueChanges.listen((val) {
+      final m = int.tryParse((val as String?)?.trim() ?? '');
+      final currentLabel = form.control('label').value as String? ?? '';
+      if (m != null && currentLabel.isEmpty) {
+        if (m < 60) {
+          form.control('label').value = '$m minutes avant';
+        } else {
+          final h = m ~/ 60;
+          final rem = m % 60;
+          form.control('label').value =
+              rem == 0 ? '$h heure${h > 1 ? "s" : ""} avant' : '$h h $rem min avant';
+        }
+      }
+    });
 
     Get.dialog(
-      AlertDialog(
-        title: const Text('Ajouter un rappel (SQLite)'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: minCtrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Minutes avant *',
-                hintText: 'Ex: 20, 45, 90...',
-                prefixIcon: Icon(Icons.timer_outlined),
+      ReactiveForm(
+        formGroup: form,
+        child: AlertDialog(
+          title: const Text('Ajouter un rappel (SQLite)'),
+          content: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppTextInputField(
+                formControlName: 'minutes',
+                label: 'Minutes avant',
+                hint: 'Ex: 20, 45, 90...',
+                prefixIcon: Icons.timer_outlined,
+                keyboardType: TextInputType.number,
+                isRequired: true,
               ),
-              onChanged: (val) {
-                final m = int.tryParse(val.trim());
-                if (m != null && labelCtrl.text.isEmpty) {
-                  if (m < 60) {
-                    labelCtrl.text = '$m minutes avant';
-                  } else {
-                    final h = m ~/ 60;
-                    final rem = m % 60;
-                    labelCtrl.text = rem == 0
-                        ? '$h heure${h > 1 ? "s" : ""} avant'
-                        : '$h h $rem min avant';
+              SizedBox(height: 12),
+              AppTextInputField(
+                formControlName: 'label',
+                label: 'Libellé affiché',
+                hint: 'Ex: 20 minutes avant',
+                prefixIcon: Icons.label_outline_rounded,
+                isRequired: true,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Get.back(),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (form.valid) {
+                  final m = int.tryParse((form.control('minutes').value as String).trim());
+                  final label = (form.control('label').value as String).trim();
+                  if (m != null && m > 0 && label.isNotEmpty) {
+                    Get.back();
+                    controller.addReminder(m, label);
                   }
+                } else {
+                  form.markAllAsTouched();
                 }
               },
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: labelCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Libellé affiché *',
-                hintText: 'Ex: 20 minutes avant',
-                prefixIcon: Icon(Icons.label_outline_rounded),
-              ),
+              child: const Text('Ajouter'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final m = int.tryParse(minCtrl.text.trim());
-              final label = labelCtrl.text.trim();
-              if (m != null && m > 0 && label.isNotEmpty) {
-                Get.back();
-                controller.addReminder(m, label);
-              }
-            },
-            child: const Text('Ajouter'),
-          ),
-        ],
       ),
     );
   }
@@ -194,7 +226,8 @@ class SettingsView extends GetView<SettingsController> {
           const SizedBox(height: 28),
 
           // Section 2 : Configuration des Jours (SQLite)
-          _buildSectionHeader(context, 'Jours de la semaine (SQLite)', Icons.calendar_view_week_rounded),
+          _buildSectionHeader(
+              context, 'Jours de la semaine (SQLite)', Icons.calendar_view_week_rounded),
           const SizedBox(height: 10),
           Card(
             margin: EdgeInsets.zero,
@@ -261,7 +294,8 @@ class SettingsView extends GetView<SettingsController> {
           const SizedBox(height: 28),
 
           // Section 3 : Configuration des Rappels (SQLite)
-          _buildSectionHeader(context, 'Options de rappel (SQLite)', Icons.notifications_active_outlined),
+          _buildSectionHeader(
+              context, 'Options de rappel (SQLite)', Icons.notifications_active_outlined),
           const SizedBox(height: 10),
           Card(
             margin: EdgeInsets.zero,
@@ -306,7 +340,8 @@ class SettingsView extends GetView<SettingsController> {
 
                         return Chip(
                           label: Text(rem['label'] as String, style: const TextStyle(fontSize: 12)),
-                          backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                          backgroundColor:
+                              isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
                           deleteIcon: isDefault ? null : const Icon(Icons.close_rounded, size: 16),
                           onDeleted: isDefault ? null : () => controller.deleteReminder(minutesRaw),
                         );
@@ -317,7 +352,8 @@ class SettingsView extends GetView<SettingsController> {
                   OutlinedButton.icon(
                     onPressed: controller.resetSqliteDefaults,
                     icon: const Icon(Icons.restore_rounded, size: 16),
-                    label: const Text('Restaurer configurations d\'usine', style: TextStyle(fontSize: 12)),
+                    label: const Text('Restaurer configurations d\'usine',
+                        style: TextStyle(fontSize: 12)),
                   ),
                 ],
               ),
@@ -388,24 +424,33 @@ class SettingsView extends GetView<SettingsController> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Architecture', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
-                      const Text('Flutter & GetX (MVC)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      Text('Architecture',
+                          style: TextStyle(
+                              fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
+                      const Text('Flutter & GetX (MVC)',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Configuration', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
-                      const Text('SQLite (Sqflite)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      Text('Stockage Données',
+                          style: TextStyle(
+                              fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
+                      const Text('Drift & SQLite (Type-Safe)',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Stockage Activités', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
-                      const Text('Hive (100% hors-ligne)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      Text('Formulaires',
+                          style: TextStyle(
+                              fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
+                      const Text('reactive_forms (FormGroup)',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ],

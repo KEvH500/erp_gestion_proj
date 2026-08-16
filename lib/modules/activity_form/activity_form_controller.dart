@@ -1,26 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:reactive_forms/reactive_forms.dart';
 import 'package:uuid/uuid.dart';
 import '../../app/controllers/base_controller.dart';
 import '../../models/activity.dart';
+import 'task_form_model.dart';
 
-/// Contrôleur GetX pour le formulaire d'ajout et d'édition d'activité
+/// Contrôleur GetX pour le formulaire d'activité / tâche utilisant reactive_forms
 class ActivityFormController extends BaseController {
-  final formKey = GlobalKey<FormState>();
+  late final FormGroup form;
 
-  late final TextEditingController titleController;
-  late final TextEditingController descriptionController;
-  late final TextEditingController locationController;
-
-  final selectedDayOfWeek = 1.obs;
-  final startTime = const TimeOfDay(hour: 8, minute: 0).obs;
-  final endTime = const TimeOfDay(hour: 9, minute: 30).obs;
-  final selectedCategory = ActivityCategory.cours.obs;
-  final isRecurring = true.obs;
-  final selectedReminderMinutes = Rxn<int>();
   final isEditing = false.obs;
   final isSaving = false.obs;
-
   Activity? existingActivity;
 
   // Jours et options de rappel réactifs chargés dynamiquement depuis SQLite
@@ -30,16 +21,34 @@ class ActivityFormController extends BaseController {
   @override
   void onInit() {
     super.onInit();
-    _initData();
+    _initForm();
     loadConfigFromSqlite();
   }
 
   @override
   void onClose() {
-    titleController.dispose();
-    descriptionController.dispose();
-    locationController.dispose();
+    form.dispose();
     super.onClose();
+  }
+
+  void _initForm() {
+    int? defaultDay;
+    if (Get.parameters.containsKey('day')) {
+      final dayParam = int.tryParse(Get.parameters['day'] ?? '1');
+      if (dayParam != null && dayParam >= 1 && dayParam <= 7) {
+        defaultDay = dayParam;
+      }
+    }
+
+    if (Get.arguments is Activity) {
+      existingActivity = Get.arguments as Activity;
+      isEditing.value = true;
+    }
+
+    form = buildTaskForm(
+      existingActivity: existingActivity,
+      defaultDayOfWeek: defaultDay,
+    );
   }
 
   Future<void> loadConfigFromSqlite() async {
@@ -48,7 +57,6 @@ class ActivityFormController extends BaseController {
       if (activeDays.isNotEmpty) {
         days.assignAll(activeDays);
       } else {
-        // Repli par défaut si jamais la base était vierge
         days.assignAll(const [
           {'value': 1, 'label': 'Lundi'},
           {'value': 2, 'label': 'Mardi'},
@@ -74,7 +82,6 @@ class ActivityFormController extends BaseController {
         ]);
       }
     } catch (_) {
-      // Sécurité en cas d'accès SQLite initial
       days.assignAll(const [
         {'value': 1, 'label': 'Lundi'},
         {'value': 2, 'label': 'Mardi'},
@@ -95,96 +102,48 @@ class ActivityFormController extends BaseController {
     }
   }
 
-  void _initData() {
-    if (Get.arguments is Activity) {
-      existingActivity = Get.arguments as Activity;
-      isEditing.value = true;
-    }
-
-    final a = existingActivity;
-    titleController = TextEditingController(text: a?.title ?? '');
-    descriptionController = TextEditingController(text: a?.description ?? '');
-    locationController = TextEditingController(text: a?.location ?? '');
-
-    if (a != null) {
-      selectedDayOfWeek.value = a.dayOfWeek;
-      startTime.value = TimeOfDay(hour: a.startHour, minute: a.startMinute);
-      endTime.value = TimeOfDay(hour: a.endHour, minute: a.endMinute);
-      selectedCategory.value = a.category;
-      isRecurring.value = a.isRecurring;
-      selectedReminderMinutes.value = a.reminderMinutesBefore;
-    } else {
-      if (Get.parameters.containsKey('day')) {
-        final dayParam = int.tryParse(Get.parameters['day'] ?? '1');
-        if (dayParam != null && dayParam >= 1 && dayParam <= 7) {
-          selectedDayOfWeek.value = dayParam;
-        }
-      } else {
-        selectedDayOfWeek.value = DateTime.now().weekday;
-      }
-    }
-  }
-
-  void setStartTime(TimeOfDay picked) {
-    startTime.value = picked;
-    final startTotal = startTime.value.hour * 60 + startTime.value.minute;
-    final endTotal = endTime.value.hour * 60 + endTime.value.minute;
-
-    if (endTotal <= startTotal) {
-      endTime.value = TimeOfDay(
-        hour: (startTime.value.hour + 1) % 24,
-        minute: startTime.value.minute,
-      );
-    }
-  }
-
-  void setEndTime(TimeOfDay picked) {
-    endTime.value = picked;
-  }
-
-  String formatTimeOfDay(TimeOfDay time) {
-    final h = time.hour.toString().padLeft(2, '0');
-    final m = time.minute.toString().padLeft(2, '0');
-    return '$h:$m';
-  }
-
   Future<void> saveActivity() async {
-    if (!formKey.currentState!.validate()) return;
-
-    final startTotal = startTime.value.hour * 60 + startTime.value.minute;
-    final endTotal = endTime.value.hour * 60 + endTime.value.minute;
-
-    if (endTotal <= startTotal) {
-      Get.snackbar(
-        'Horaire invalide',
-        "L'heure de fin doit être postérieure à l'heure de début.",
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.redAccent,
-        colorText: Colors.white,
-        margin: const EdgeInsets.all(16),
-      );
+    if (!form.valid) {
+      form.markAllAsTouched();
+      if (form.hasError('timeOrder')) {
+        Get.snackbar(
+          'Horaire invalide',
+          "L'heure de fin doit être postérieure à l'heure de début.",
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.redAccent,
+          colorText: Colors.white,
+          margin: const EdgeInsets.all(16),
+        );
+      }
       return;
     }
+
+    final value = form.value;
+    final title = (value['title'] as String?)?.trim() ?? '';
+    final description = (value['description'] as String?)?.trim();
+    final location = (value['location'] as String?)?.trim();
+    final dayOfWeek = (value['dayOfWeek'] as int?) ?? 1;
+    final startTime = (value['startTime'] as TimeOfDay?) ?? const TimeOfDay(hour: 8, minute: 0);
+    final endTime = (value['endTime'] as TimeOfDay?) ?? const TimeOfDay(hour: 9, minute: 30);
+    final category = (value['category'] as ActivityCategory?) ?? ActivityCategory.cours;
+    final isRecurring = (value['isRecurring'] as bool?) ?? true;
+    final reminderMinutes = value['reminderMinutesBefore'] as int?;
 
     isSaving.value = true;
     try {
       if (isEditing.value && existingActivity != null) {
         final updated = existingActivity!.copyWith(
-          title: titleController.text.trim(),
-          description: descriptionController.text.trim().isEmpty
-              ? null
-              : descriptionController.text.trim(),
-          location: locationController.text.trim().isEmpty
-              ? null
-              : locationController.text.trim(),
-          dayOfWeek: selectedDayOfWeek.value,
-          startHour: startTime.value.hour,
-          startMinute: startTime.value.minute,
-          endHour: endTime.value.hour,
-          endMinute: endTime.value.minute,
-          category: selectedCategory.value,
-          isRecurring: isRecurring.value,
-          reminderMinutesBefore: selectedReminderMinutes.value,
+          title: title,
+          description: description?.isEmpty ?? true ? null : description,
+          location: location?.isEmpty ?? true ? null : location,
+          dayOfWeek: dayOfWeek,
+          startHour: startTime.hour,
+          startMinute: startTime.minute,
+          endHour: endTime.hour,
+          endMinute: endTime.minute,
+          category: category,
+          isRecurring: isRecurring,
+          reminderMinutesBefore: reminderMinutes,
         );
 
         await activityRepo.updateActivity(updated);
@@ -199,21 +158,17 @@ class ActivityFormController extends BaseController {
       } else {
         final newActivity = Activity(
           id: const Uuid().v4(),
-          title: titleController.text.trim(),
-          description: descriptionController.text.trim().isEmpty
-              ? null
-              : descriptionController.text.trim(),
-          location: locationController.text.trim().isEmpty
-              ? null
-              : locationController.text.trim(),
-          dayOfWeek: selectedDayOfWeek.value,
-          startHour: startTime.value.hour,
-          startMinute: startTime.value.minute,
-          endHour: endTime.value.hour,
-          endMinute: endTime.value.minute,
-          category: selectedCategory.value,
-          isRecurring: isRecurring.value,
-          reminderMinutesBefore: selectedReminderMinutes.value,
+          title: title,
+          description: description?.isEmpty ?? true ? null : description,
+          location: location?.isEmpty ?? true ? null : location,
+          dayOfWeek: dayOfWeek,
+          startHour: startTime.hour,
+          startMinute: startTime.minute,
+          endHour: endTime.hour,
+          endMinute: endTime.minute,
+          category: category,
+          isRecurring: isRecurring,
+          reminderMinutesBefore: reminderMinutes,
         );
 
         await activityRepo.addActivity(newActivity);

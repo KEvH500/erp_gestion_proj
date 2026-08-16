@@ -1,25 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:reactive_forms/reactive_forms.dart';
 import 'package:uuid/uuid.dart';
 import '../../../app/controllers/base_controller.dart';
 import '../../../models/activity.dart';
 import '../../../models/goal.dart';
+import '../../../widgets/form/app_text_input_field.dart';
+import '../../../widgets/form/app_time_picker_field.dart';
 
-/// Contrôleur GetX dédié au modal d'ajout et d'édition d'un objectif
+/// Contrôleur GetX dédié au modal d'ajout et d'édition d'un objectif avec reactive_forms
 class AddEditGoalController extends BaseController {
+  late final FormGroup form;
 
-  final formKey = GlobalKey<FormState>();
-
-  late final TextEditingController titleController;
-  late final TextEditingController descriptionController;
-  late final TextEditingController targetValueController;
-
-  final selectedType = GoalType.fullTime.obs;
-  final selectedPeriod = GoalPeriod.daily.obs;
-  final selectedCategory = Rxn<ActivityCategory>();
-  final deadlineTime = Rxn<TimeOfDay>();
   final deadlineDate = DateTime.now().obs;
-
   final isSaving = false.obs;
   final isEditing = false.obs;
   Goal? existingGoal;
@@ -28,70 +21,94 @@ class AddEditGoalController extends BaseController {
     existingGoal = goal;
     isEditing.value = goal != null;
 
-    titleController = TextEditingController(text: goal?.title ?? '');
-    descriptionController = TextEditingController(text: goal?.description ?? '');
-
     double initialVal = goal?.targetValue ?? 60.0;
     if (goal?.type == GoalType.fullTime) {
       initialVal = (goal?.targetValue ?? 420.0) / 60.0;
     }
-    targetValueController = TextEditingController(
-      text: initialVal % 1 == 0 ? initialVal.toInt().toString() : initialVal.toString(),
-    );
+    final targetStr = initialVal % 1 == 0 ? initialVal.toInt().toString() : initialVal.toString();
 
-    selectedType.value = goal?.type ?? GoalType.fullTime;
-    selectedPeriod.value = goal?.period ?? GoalPeriod.daily;
-    selectedCategory.value = goal?.category;
-
+    TimeOfDay? initialDeadlineTime;
     if (goal?.deadline != null) {
       deadlineDate.value = goal!.deadline!;
-      deadlineTime.value = TimeOfDay(hour: goal.deadline!.hour, minute: goal.deadline!.minute);
-    } else {
-      deadlineTime.value = null;
+      initialDeadlineTime = TimeOfDay(hour: goal.deadline!.hour, minute: goal.deadline!.minute);
     }
+
+    form = FormGroup({
+      'title': FormControl<String>(
+        value: goal?.title ?? '',
+        validators: [Validators.required, Validators.minLength(1)],
+      ),
+      'description': FormControl<String>(
+        value: goal?.description ?? '',
+      ),
+      'type': FormControl<GoalType>(
+        value: goal?.type ?? GoalType.fullTime,
+        validators: [Validators.required],
+      ),
+      'period': FormControl<GoalPeriod>(
+        value: goal?.period ?? GoalPeriod.daily,
+        validators: [Validators.required],
+      ),
+      'targetValue': FormControl<String>(
+        value: targetStr,
+        validators: [Validators.required, Validators.number()],
+      ),
+      'deadlineTime': FormControl<TimeOfDay>(
+        value: initialDeadlineTime,
+      ),
+      'category': FormControl<ActivityCategory?>(
+        value: goal?.category,
+      ),
+    });
   }
 
   @override
   void onClose() {
-    titleController.dispose();
-    descriptionController.dispose();
-    targetValueController.dispose();
+    form.dispose();
     super.onClose();
   }
 
-  void applyPreset(String title, GoalType type, double targetValHours, ActivityCategory? cat, TimeOfDay? deadline) {
-    titleController.text = title;
-    selectedType.value = type;
-    selectedCategory.value = cat;
-    deadlineTime.value = deadline;
-    targetValueController.text = targetValHours % 1 == 0 ? targetValHours.toInt().toString() : targetValHours.toString();
-  }
-
-  void setType(GoalType type) {
-    selectedType.value = type;
-    if (type == GoalType.fullTime && targetValueController.text.isEmpty) {
-      targetValueController.text = '7';
-    }
-  }
-
-  void setDeadlineTime(TimeOfDay? time) {
-    deadlineTime.value = time;
+  void applyPreset(
+    String title,
+    GoalType type,
+    double targetValHours,
+    ActivityCategory? cat,
+    TimeOfDay? deadline,
+  ) {
+    form.control('title').value = title;
+    form.control('type').value = type;
+    form.control('category').value = cat;
+    form.control('deadlineTime').value = deadline;
+    form.control('targetValue').value = targetValHours % 1 == 0
+        ? targetValHours.toInt().toString()
+        : targetValHours.toString();
   }
 
   Future<void> saveGoal() async {
-    if (!formKey.currentState!.validate()) return;
+    if (!form.valid) {
+      form.markAllAsTouched();
+      return;
+    }
 
-    final parsedVal = double.tryParse(targetValueController.text.trim()) ?? 1.0;
-    final finalTargetVal = selectedType.value == GoalType.fullTime ? (parsedVal * 60.0) : parsedVal;
+    final value = form.value;
+    final title = (value['title'] as String?)?.trim() ?? '';
+    final description = (value['description'] as String?)?.trim();
+    final type = (value['type'] as GoalType?) ?? GoalType.fullTime;
+    final period = (value['period'] as GoalPeriod?) ?? GoalPeriod.daily;
+    final targetStr = value['targetValue'] as String? ?? '1';
+    final parsedVal = double.tryParse(targetStr.trim()) ?? 1.0;
+    final finalTargetVal = type == GoalType.fullTime ? (parsedVal * 60.0) : parsedVal;
+    final deadlineTime = value['deadlineTime'] as TimeOfDay?;
+    final category = value['category'] as ActivityCategory?;
 
     DateTime? finalDeadline;
-    if (selectedType.value == GoalType.timeLimited && deadlineTime.value != null) {
+    if (type == GoalType.timeLimited && deadlineTime != null) {
       finalDeadline = DateTime(
         deadlineDate.value.year,
         deadlineDate.value.month,
         deadlineDate.value.day,
-        deadlineTime.value!.hour,
-        deadlineTime.value!.minute,
+        deadlineTime.hour,
+        deadlineTime.minute,
       );
     }
 
@@ -99,14 +116,14 @@ class AddEditGoalController extends BaseController {
     try {
       final goal = Goal(
         id: existingGoal?.id ?? const Uuid().v4(),
-        title: titleController.text.trim(),
-        description: descriptionController.text.trim().isEmpty ? null : descriptionController.text.trim(),
-        type: selectedType.value,
-        period: selectedPeriod.value,
+        title: title,
+        description: description?.isEmpty ?? true ? null : description,
+        type: type,
+        period: period,
         targetValue: finalTargetVal,
         currentValue: existingGoal?.currentValue ?? 0.0,
         deadline: finalDeadline,
-        category: selectedCategory.value,
+        category: category,
         isCompleted: existingGoal?.isCompleted ?? false,
       );
 
@@ -123,14 +140,15 @@ class AddEditGoalController extends BaseController {
         snackPosition: SnackPosition.BOTTOM,
       );
     } catch (e) {
-      Get.snackbar('Erreur', '$e', snackPosition: SnackPosition.BOTTOM, backgroundColor: Colors.redAccent);
+      Get.snackbar('Erreur', '$e',
+          snackPosition: SnackPosition.BOTTOM, backgroundColor: Colors.redAccent);
     } finally {
       isSaving.value = false;
     }
   }
 }
 
-/// Modal GetX pour la création ou l'édition d'un objectif
+/// Modal GetX pour la création ou l'édition d'un objectif avec reactive_forms
 class AddEditGoalModal extends StatelessWidget {
   final Goal? goal;
 
@@ -156,19 +174,19 @@ class AddEditGoalModal extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottomInset),
-      child: Container(
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E293B) : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: SafeArea(
-          top: false,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
-            child: Form(
-              key: controller.formKey,
+    return ReactiveForm(
+      formGroup: controller.form,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -193,16 +211,24 @@ class AddEditGoalModal extends StatelessWidget {
                           color: theme.colorScheme.primary.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Icon(Icons.track_changes_rounded, color: theme.colorScheme.primary, size: 22),
+                        child: Icon(Icons.track_changes_rounded,
+                            color: theme.colorScheme.primary, size: 22),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: Text(
-                          controller.isEditing.value ? 'Modifier l\'objectif' : 'Nouvel Objectif & Défi',
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                        child: Obx(
+                          () => Text(
+                            controller.isEditing.value
+                                ? 'Modifier l\'objectif'
+                                : 'Nouvel Objectif & Défi',
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                          ),
                         ),
                       ),
-                      IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Get.back()),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: () => Get.back(),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -213,11 +239,38 @@ class AddEditGoalModal extends StatelessWidget {
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: [
-                          _buildPresetChip('⏳ Temps plein 8h', () => controller.applyPreset('8h de travail effectif', GoalType.fullTime, 8.0, ActivityCategory.travail, null)),
+                          _buildPresetChip(
+                            '⏳ Temps plein 8h',
+                            () => controller.applyPreset(
+                              '8h de travail effectif',
+                              GoalType.fullTime,
+                              8.0,
+                              ActivityCategory.travail,
+                              null,
+                            ),
+                          ),
                           const SizedBox(width: 6),
-                          _buildPresetChip('⏱️ Fin avant 18h', () => controller.applyPreset('Boucler urgences avant 18h', GoalType.timeLimited, 1.0, null, const TimeOfDay(hour: 18, minute: 0))),
+                          _buildPresetChip(
+                            '⏱️ Fin avant 18h',
+                            () => controller.applyPreset(
+                              'Boucler urgences avant 18h',
+                              GoalType.timeLimited,
+                              1.0,
+                              null,
+                              const TimeOfDay(hour: 18, minute: 0),
+                            ),
+                          ),
                           const SizedBox(width: 6),
-                          _buildPresetChip('📋 5 tâches', () => controller.applyPreset('Réaliser 5 tâches du jour', GoalType.taskCount, 5.0, null, null)),
+                          _buildPresetChip(
+                            '📋 5 tâches',
+                            () => controller.applyPreset(
+                              'Réaliser 5 tâches du jour',
+                              GoalType.taskCount,
+                              5.0,
+                              null,
+                              null,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -225,89 +278,101 @@ class AddEditGoalModal extends StatelessWidget {
                   ],
 
                   // Champ Titre
-                  TextFormField(
-                    controller: controller.titleController,
-                    decoration: const InputDecoration(
-                      labelText: 'Titre de l\'objectif *',
-                      hintText: 'Ex: 7h de travail, Finir dossier client avant 17h...',
-                      prefixIcon: Icon(Icons.flag_rounded),
-                    ),
-                    validator: (val) => val == null || val.trim().isEmpty ? 'Titre requis.' : null,
+                  const AppTextInputField(
+                    formControlName: 'title',
+                    label: 'Titre de l\'objectif',
+                    hint: 'Ex: 7h de travail, Finir dossier client avant 17h...',
+                    prefixIcon: Icons.flag_rounded,
+                    isRequired: true,
                   ),
                   const SizedBox(height: 14),
 
                   // Type d'objectif
-                  Obx(
-                    () => SegmentedButton<GoalType>(
-                      segments: const [
-                        ButtonSegment(value: GoalType.fullTime, label: Text('⏳ Temps Plein'), icon: Icon(Icons.timer_rounded)),
-                        ButtonSegment(value: GoalType.timeLimited, label: Text('⏱️ Temps Limité'), icon: Icon(Icons.alarm_rounded)),
-                        ButtonSegment(value: GoalType.taskCount, label: Text('📋 Tâches'), icon: Icon(Icons.checklist_rounded)),
-                      ],
-                      selected: {controller.selectedType.value},
-                      onSelectionChanged: (set) => controller.setType(set.first),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+                  ReactiveValueListenableBuilder<GoalType>(
+                    formControlName: 'type',
+                    builder: (context, control, child) {
+                      final currentType = control.value ?? GoalType.fullTime;
 
-                  // Valeur cible
-                  Obx(() {
-                    final type = controller.selectedType.value;
-                    if (type == GoalType.fullTime) {
-                      return TextFormField(
-                        controller: controller.targetValueController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(
-                          labelText: 'Durée cible cumulée (en heures) *',
-                          hintText: 'Ex: 7 (pour 7 heures), 35 (semaine)...',
-                          prefixIcon: Icon(Icons.hourglass_bottom_rounded),
-                          suffixText: 'heures',
-                        ),
-                        validator: (val) => (double.tryParse(val ?? '') ?? 0) <= 0 ? 'Entrez un nombre > 0' : null,
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SegmentedButton<GoalType>(
+                            segments: const [
+                              ButtonSegment(
+                                value: GoalType.fullTime,
+                                label: Text('⏳ Temps Plein'),
+                                icon: Icon(Icons.timer_rounded),
+                              ),
+                              ButtonSegment(
+                                value: GoalType.timeLimited,
+                                label: Text('⏱️ Temps Limité'),
+                                icon: Icon(Icons.alarm_rounded),
+                              ),
+                              ButtonSegment(
+                                value: GoalType.taskCount,
+                                label: Text('📋 Tâches'),
+                                icon: Icon(Icons.checklist_rounded),
+                              ),
+                            ],
+                            selected: {currentType},
+                            onSelectionChanged: (set) {
+                              control.value = set.first;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Champ dynamique selon le type
+                          if (currentType == GoalType.fullTime) ...[
+                            const AppTextInputField(
+                              formControlName: 'targetValue',
+                              label: 'Durée cible cumulée (en heures)',
+                              hint: 'Ex: 7 (pour 7 heures), 35 (semaine)...',
+                              prefixIcon: Icons.hourglass_bottom_rounded,
+                              keyboardType: TextInputType.numberWithOptions(decimal: true),
+                              isRequired: true,
+                            ),
+                          ] else if (currentType == GoalType.taskCount) ...[
+                            const AppTextInputField(
+                              formControlName: 'targetValue',
+                              label: 'Nombre d\'activités à compléter',
+                              hint: 'Ex: 5',
+                              prefixIcon: Icons.format_list_numbered_rounded,
+                              keyboardType: TextInputType.number,
+                              isRequired: true,
+                            ),
+                          ] else ...[
+                            const AppTimePickerField(
+                              formControlName: 'deadlineTime',
+                              label: 'Heure butoir de complétion',
+                              prefixIcon: Icons.alarm_on_rounded,
+                              isRequired: true,
+                            ),
+                          ],
+                        ],
                       );
-                    } else if (type == GoalType.taskCount) {
-                      return TextFormField(
-                        controller: controller.targetValueController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Nombre d\'activités ou tâches à compléter *',
-                          hintText: 'Ex: 5',
-                          prefixIcon: Icon(Icons.format_list_numbered_rounded),
-                          suffixText: 'tâches',
-                        ),
-                        validator: (val) => (int.tryParse(val ?? '') ?? 0) <= 0 ? 'Entrez un nombre entier > 0' : null,
-                      );
-                    } else {
-                      final time = controller.deadlineTime.value;
-                      return OutlinedButton.icon(
-                        onPressed: () async {
-                          final picked = await showTimePicker(
-                            context: context,
-                            initialTime: time ?? const TimeOfDay(hour: 18, minute: 0),
-                          );
-                          if (picked != null) {
-                            controller.setDeadlineTime(picked);
-                          }
-                        },
-                        icon: const Icon(Icons.alarm_on_rounded),
-                        label: Text(
-                          time == null
-                              ? 'Définir l\'heure butoir *'
-                              : 'Heure butoir : ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      );
-                    }
-                  }),
+                    },
+                  ),
                   const SizedBox(height: 24),
 
                   // Bouton Enregistrer
                   Obx(
                     () => FilledButton.icon(
                       onPressed: controller.isSaving.value ? null : controller.saveGoal,
-                      style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
                       icon: controller.isSaving.value
-                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
                           : const Icon(Icons.check_circle_rounded),
                       label: Text(
                         controller.isSaving.value

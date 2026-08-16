@@ -1,37 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:reactive_forms/reactive_forms.dart';
 import '../../../app/controllers/base_controller.dart';
 import '../../../models/activity.dart';
 import '../../../models/unplanned_task.dart';
+import '../../../widgets/form/app_text_input_field.dart';
 
-/// Contrôleur GetX dédié au BottomSheet de suivi et commentaires d'une tâche
+/// Contrôleur GetX dédié au BottomSheet de suivi et commentaires d'une tâche avec reactive_forms
 class TaskCommentController extends BaseController {
-
-  final commentController = TextEditingController();
-  final commentFocus = FocusNode();
+  late final FormGroup form;
 
   final task = Rxn<UnplannedTask>();
   final isSubmitting = false.obs;
 
   void init(String taskId) {
     task.value = unplannedRepo.getTaskById(taskId);
+    form = FormGroup({
+      'comment': FormControl<String>(
+        value: '',
+        validators: [Validators.required, Validators.minLength(1)],
+      ),
+    });
   }
 
   @override
   void onClose() {
-    commentController.dispose();
-    commentFocus.dispose();
+    form.dispose();
     super.onClose();
   }
 
   Future<void> submitComment() async {
-    final text = commentController.text.trim();
-    if (text.isEmpty || task.value == null) return;
+    if (!form.valid || task.value == null) {
+      form.markAllAsTouched();
+      return;
+    }
+
+    final text = (form.control('comment').value as String?)?.trim() ?? '';
+    if (text.isEmpty) return;
 
     isSubmitting.value = true;
-    commentController.clear();
-    commentFocus.unfocus();
+    form.control('comment').reset();
 
     final timestamp = DateFormat('dd/MM HH:mm', 'fr_FR').format(DateTime.now());
     final newComment = '[$timestamp] $text';
@@ -64,22 +73,43 @@ class TaskCommentController extends BaseController {
     await unplannedRepo.updateTask(updated);
     task.value = updated;
 
-    Get.back(result: updated);
     Get.snackbar(
       'Tâche reportée',
-      'Tâche reportée à demain ($newDateStr) ➡️',
+      'Reportée à demain ($newDateStr). Total reports : ${updated.postponedCount}',
       snackPosition: SnackPosition.BOTTOM,
     );
   }
 
-  Future<void> toggleCompletion() async {
+  Future<void> postponeByDays(int days) async {
     if (task.value == null) return;
-    await unplannedRepo.toggleTaskCompletion(task.value!.id);
-    task.value = unplannedRepo.getTaskById(task.value!.id);
+
+    final newDate = task.value!.date.add(Duration(days: days));
+    final prevDateStr = DateFormat('dd/MM', 'fr_FR').format(task.value!.date);
+    final newDateStr = DateFormat('dd/MM', 'fr_FR').format(newDate);
+    final timestamp = DateFormat('dd/MM HH:mm', 'fr_FR').format(DateTime.now());
+
+    final updatedComments = List<String>.from(task.value!.comments)
+      ..add('[$timestamp] ➡️ Reportée de $days jour(s) ($prevDateStr ➔ $newDateStr)');
+
+    final updated = task.value!.copyWith(
+      date: newDate,
+      originalDate: task.value!.originalDate ?? task.value!.date,
+      postponedCount: task.value!.postponedCount + 1,
+      comments: updatedComments,
+    );
+
+    await unplannedRepo.updateTask(updated);
+    task.value = updated;
+
+    Get.snackbar(
+      'Tâche reportée',
+      'Reportée au $newDateStr (+ $days j).',
+      snackPosition: SnackPosition.BOTTOM,
+    );
   }
 }
 
-/// Modal BottomSheet GetX affichant les détails d'une tâche, son fil de commentaires et options de report
+/// BottomSheet GetX de suivi et ajout de commentaires sur une tâche imprévue avec reactive_forms
 class TaskCommentModal extends StatelessWidget {
   final String taskId;
 
@@ -89,7 +119,7 @@ class TaskCommentModal extends StatelessWidget {
     final controller = Get.put(TaskCommentController());
     controller.init(taskId);
 
-    return Get.bottomSheet(
+    return Get.bottomSheet<void>(
       TaskCommentModal(taskId: taskId),
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -108,9 +138,7 @@ class TaskCommentModal extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
       child: Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.85,
-        ),
+        height: MediaQuery.of(context).size.height * 0.75,
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1E293B) : Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -119,25 +147,20 @@ class TaskCommentModal extends StatelessWidget {
           top: false,
           child: Obx(() {
             final task = controller.task.value;
-
             if (task == null) {
-              return Container(
-                padding: const EdgeInsets.all(24),
-                child: const Center(child: Text('Tâche introuvable ou supprimée.')),
-              );
+              return const Center(child: Text('Tâche introuvable'));
             }
 
-            final dateStr = DateFormat('EEEE d MMMM yyyy', 'fr_FR').format(task.date);
-            final capitalizedDate = dateStr[0].toUpperCase() + dateStr.substring(1);
+            final isOverdue = task.isOverdue;
+            final isPostponed = task.isPostponed;
 
             return Column(
-              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // 1. Poignée supérieure
-                const SizedBox(height: 10),
+                // 1. Barre de glissement
                 Center(
                   child: Container(
+                    margin: const EdgeInsets.only(top: 12, bottom: 8),
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
@@ -147,176 +170,129 @@ class TaskCommentModal extends StatelessWidget {
                   ),
                 ),
 
-                // 2. En-tête avec titre & badges
+                // 2. En-tête avec titre & badge de priorité
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-                  child: Column(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: task.priority.color.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          task.priority.icon,
+                          color: task.priority.color,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
                               task.title,
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                decoration: task.isCompleted ? TextDecoration.lineThrough : null,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close_rounded, size: 20),
-                            onPressed: () => Get.back(),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          // Badge Priorité
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: task.priority.color.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
+                            const SizedBox(height: 4),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
                               children: [
-                                Icon(task.priority.icon, size: 12, color: task.priority.color),
-                                const SizedBox(width: 4),
-                                Text(
-                                  task.priority.label,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: task.priority.color,
-                                  ),
+                                _buildTag(
+                                  label: task.priority.label,
+                                  color: task.priority.color,
                                 ),
+                                _buildTag(
+                                  label: task.category.label,
+                                  color: task.category.color,
+                                ),
+                                if (isPostponed)
+                                  _buildTag(
+                                    label: 'Reportée ${task.postponedCount}x',
+                                    color: Colors.orange,
+                                  ),
+                                if (isOverdue)
+                                  _buildTag(
+                                    label: 'En retard',
+                                    color: Colors.redAccent,
+                                  ),
                               ],
                             ),
-                          ),
-
-                          // Badge Catégorie
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: task.category.color.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              task.category.label,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: task.category.color,
-                              ),
-                            ),
-                          ),
-
-                          // Badge Reporté
-                          if (task.postponedCount > 0)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: Colors.orange.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.forward_rounded, size: 12, color: Colors.orange),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Reporté (${task.postponedCount}x)',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.orange,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 8),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: () => Get.back(),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Divider(height: 1),
+
+                // 3. Actions rapides de report
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Reporter :',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              _buildActionChip(
+                                label: 'À demain',
+                                icon: Icons.arrow_forward_rounded,
+                                onTap: controller.postponeToTomorrow,
+                              ),
+                              const SizedBox(width: 6),
+                              _buildActionChip(
+                                label: '+2 jours',
+                                icon: Icons.fast_forward_rounded,
+                                onTap: () => controller.postponeByDays(2),
+                              ),
+                              const SizedBox(width: 6),
+                              _buildActionChip(
+                                label: 'Semaine pro (+7j)',
+                                icon: Icons.next_week_rounded,
+                                onTap: () => controller.postponeByDays(7),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Divider(height: 1),
+
+                // 4. Liste des commentaires et historique
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.forum_outlined, size: 16),
+                      const SizedBox(width: 6),
                       Text(
-                        '📅 Prévue pour : $capitalizedDate',
-                        style: TextStyle(
+                        'Historique & Commentaires (${task.comments.length})',
+                        style: const TextStyle(
                           fontSize: 12,
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.bold,
                         ),
-                      ),
-                      if (task.description != null && task.description!.trim().isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Text(task.description!, style: const TextStyle(fontSize: 13)),
-                      ],
-                    ],
-                  ),
-                ),
-
-                const Divider(height: 1),
-
-                // 3. Boutons d'actions rapides
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: controller.postponeToTomorrow,
-                          icon: const Icon(Icons.forward_rounded, size: 16, color: Colors.orange),
-                          label: const Text('Reporter à demain', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: controller.toggleCompletion,
-                          icon: Icon(
-                            task.isCompleted ? Icons.undo_rounded : Icons.check_circle_outline_rounded,
-                            size: 16,
-                          ),
-                          label: Text(
-                            task.isCompleted ? 'À faire' : 'Terminer',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: task.isCompleted
-                                ? (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0))
-                                : theme.colorScheme.primary,
-                            foregroundColor: task.isCompleted ? theme.colorScheme.onSurface : Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const Divider(height: 1),
-
-                // 4. Liste des commentaires
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 4),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.chat_bubble_outline_rounded, size: 16, color: Colors.blueAccent),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Commentaires & Suivi (${task.comments.length})',
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -326,7 +302,7 @@ class TaskCommentModal extends StatelessWidget {
                   child: task.comments.isEmpty
                       ? Center(
                           child: Text(
-                            'Aucun commentaire pour le moment.\nAjoutez une note ou une explication ci-dessous.',
+                            'Aucun commentaire ou action enregistrée pour le moment.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 12,
@@ -344,7 +320,9 @@ class TaskCommentModal extends StatelessWidget {
                             return Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               decoration: BoxDecoration(
-                                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                                color: isDark
+                                    ? const Color(0xFF0F172A)
+                                    : const Color(0xFFF1F5F9),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(comment, style: const TextStyle(fontSize: 12)),
@@ -353,47 +331,41 @@ class TaskCommentModal extends StatelessWidget {
                         ),
                 ),
 
-                // 5. Zone de saisie du nouveau commentaire
-                Container(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                    border: Border(
-                      top: BorderSide(
-                        color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-                      ),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          height: 42,
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: TextField(
-                            controller: controller.commentController,
-                            focusNode: controller.commentFocus,
-                            textInputAction: TextInputAction.send,
-                            onSubmitted: (_) => controller.submitComment(),
-                            style: const TextStyle(fontSize: 13),
-                            decoration: InputDecoration(
-                              hintText: 'Ajouter un commentaire / note...',
-                              hintStyle: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
-                              border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            ),
-                          ),
+                // 5. Zone de saisie du nouveau commentaire avec reactive_forms
+                ReactiveForm(
+                  formGroup: controller.form,
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      border: Border(
+                        top: BorderSide(
+                          color: isDark
+                              ? const Color(0xFF334155)
+                              : const Color(0xFFE2E8F0),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      IconButton.filled(
-                        onPressed: controller.isSubmitting.value ? null : controller.submitComment,
-                        icon: const Icon(Icons.send_rounded, size: 18),
-                      ),
-                    ],
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: AppTextInputField(
+                            formControlName: 'comment',
+                            label: 'Commentaire',
+                            hint: 'Ajouter un commentaire ou une note...',
+                            prefixIcon: Icons.edit_note_rounded,
+                            onSubmitted: (_) => controller.submitComment(),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton.filled(
+                          onPressed: controller.isSubmitting.value
+                              ? null
+                              : controller.submitComment,
+                          icon: const Icon(Icons.send_rounded, size: 18),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -401,6 +373,36 @@ class TaskCommentModal extends StatelessWidget {
           }),
         ),
       ),
+    );
+  }
+
+  Widget _buildTag({required String label, required Color color}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionChip({
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return ActionChip(
+      avatar: Icon(icon, size: 14),
+      label: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+      onPressed: onTap,
     );
   }
 }

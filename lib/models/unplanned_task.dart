@@ -97,6 +97,9 @@ class UnplannedTask extends HiveObject {
     return taskDay.isBefore(today);
   }
 
+  /// Vérifie si la tâche a déjà été reportée
+  bool get isPostponed => postponedCount > 0;
+
   UnplannedTask copyWith({
     String? id,
     String? title,
