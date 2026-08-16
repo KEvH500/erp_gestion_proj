@@ -15,14 +15,12 @@ class WeekView extends GetView<WeekController> {
   const WeekView({super.key});
 
   void _showAddChoicesModal(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
     Get.bottomSheet(
       Container(
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E293B) : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border(top: BorderSide(color: AppColors.border, width: 1)),
         ),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
         child: SafeArea(
@@ -35,18 +33,15 @@ class WeekView extends GetView<WeekController> {
                   width: 36,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: isDark ? Colors.grey[700] : Colors.grey[300],
+                    color: AppColors.border,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
+              const AppText.heading(
                 'Que souhaitez-vous ajouter ?',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                fontSize: 18,
               ),
               const SizedBox(height: 16),
               // Option 1 : Tâche Imprévue / Rapide (⚡ FLASH)
@@ -59,10 +54,10 @@ class WeekView extends GetView<WeekController> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.amber.withValues(alpha: isDark ? 0.15 : 0.1),
+                    color: AppColors.surfaceVariant,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: Colors.amber.withValues(alpha: 0.4),
+                      color: AppColors.topaze.withValues(alpha: 0.4),
                     ),
                   ),
                   child: Row(
@@ -70,58 +65,50 @@ class WeekView extends GetView<WeekController> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.amber.withValues(alpha: 0.2),
+                          color: AppColors.topaze.withValues(alpha: 0.18),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
                           Icons.bolt_rounded,
-                          color: Colors.amber,
+                          color: AppColors.topaze,
                           size: 24,
                         ),
                       ),
                       const SizedBox(width: 14),
-                      Expanded(
+                      const Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Row(
+                            Row(
                               children: [
-                                Text(
+                                AppText.heading(
                                   'Tâche Imprévue / Rapide',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                  ),
+                                  fontSize: 15,
                                 ),
                                 SizedBox(width: 6),
-                                Text(
+                                AppText.label(
                                   '⚡ FLASH',
-                                  style: TextStyle(
-                                    color: Colors.orange,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 10,
-                                  ),
+                                  color: AppColors.topaze,
+                                  fontSize: 10,
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 2),
-                            Text(
+                            SizedBox(height: 2),
+                            AppText.body(
                               'Sans contrainte d\'horaire fixe. Créez un to-do urgent en 2 secondes.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
                             ),
                           ],
                         ),
                       ),
-                      const Icon(Icons.chevron_right_rounded),
+                      const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: 12),
-              // Option 2 : Activité Planifiée (Emploi du temps)
+              // Option 2 : Activité / Événement planifié (🕒 HORAIRE)
               InkWell(
                 onTap: () {
                   Get.back();
@@ -131,10 +118,10 @@ class WeekView extends GetView<WeekController> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: isDark ? 0.15 : 0.08),
+                    color: AppColors.surfaceVariant,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                      color: AppColors.saphir.withValues(alpha: 0.4),
                     ),
                   ),
                   child: Row(
@@ -142,39 +129,44 @@ class WeekView extends GetView<WeekController> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                          color: AppColors.saphir.withValues(alpha: 0.18),
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(
-                          Icons.calendar_month_rounded,
-                          color: theme.colorScheme.primary,
+                        child: const Icon(
+                          Icons.event_available_rounded,
+                          color: AppColors.saphir,
                           size: 24,
                         ),
                       ),
                       const SizedBox(width: 14),
-                      Expanded(
+                      const Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Activité Planifiée',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
+                            Row(
+                              children: [
+                                AppText.heading(
+                                  'Activité / Événement',
+                                  fontSize: 15,
+                                ),
+                                SizedBox(width: 6),
+                                AppText.label(
+                                  '🕒 HORAIRE',
+                                  color: AppColors.saphir,
+                                  fontSize: 10,
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Avec plage horaire fixe (ex: 08:00 - 10:00) et récurrence hebdomadaire.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
+                            SizedBox(height: 2),
+                            AppText.body(
+                              'Cours, travail, réunion ou sport avec horaires de début et de fin.',
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
                             ),
                           ],
                         ),
                       ),
-                      const Icon(Icons.chevron_right_rounded),
+                      const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
                     ],
                   ),
                 ),
