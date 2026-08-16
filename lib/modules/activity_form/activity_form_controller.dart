@@ -128,6 +128,7 @@ class ActivityFormController extends BaseController {
     final endTime = (value['endTime'] as TimeOfDay?) ?? const TimeOfDay(hour: 9, minute: 30);
     final category = (value['category'] as ActivityCategory?) ?? ActivityCategory.cours;
     final reminderMinutes = value['reminderMinutesBefore'] as int?;
+    final isLocked = (value['isLocked'] as bool?) ?? false;
 
     // Récurrence
     final isRecurring = (value['isRecurring'] as bool?) ?? false;
@@ -168,6 +169,7 @@ class ActivityFormController extends BaseController {
           recurrenceRule: recurrenceRule,
           clearRecurrence: !isRecurring,
           reminderMinutesBefore: reminderMinutes,
+          isLocked: isLocked,
         );
 
         await activityRepo.updateActivity(updated);
@@ -193,6 +195,7 @@ class ActivityFormController extends BaseController {
           category: category,
           recurrenceRule: recurrenceRule,
           reminderMinutesBefore: reminderMinutes,
+          isLocked: isLocked,
         );
 
         await activityRepo.addActivity(newActivity);

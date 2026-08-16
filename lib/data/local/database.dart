@@ -65,6 +65,7 @@ class Tasks extends Table {
   BoolColumn get isCompleted => boolean().withDefault(const Constant(false))();
   BoolColumn get isArchived => boolean().withDefault(const Constant(false))();
   DateTimeColumn get archivedAt => dateTime().nullable()();
+  BoolColumn get isLocked => boolean().withDefault(const Constant(false))();
 
   // Horodatages
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
@@ -118,7 +119,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? e]) : super(e ?? _openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -133,6 +134,9 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 3) {
         await m.createTable(recurrenceExceptions);
+      }
+      if (from < 4) {
+        await m.addColumn(tasks, tasks.isLocked);
       }
     },
   );
