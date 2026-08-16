@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
+import 'recurrence_rule.dart';
 
 part 'activity.g.dart';
 
@@ -80,7 +81,7 @@ class Activity extends HiveObject {
   final String? description;
 
   @HiveField(3)
-  final int dayOfWeek; // 1 = Lundi, 2 = Mardi, ..., 7 = Dimanche (DateTime.monday .. DateTime.sunday)
+  final DateTime startDate; // Date réelle du premier événement / ancrage
 
   @HiveField(4)
   final int startHour;
@@ -107,13 +108,13 @@ class Activity extends HiveObject {
   final int? reminderMinutesBefore; // ex: 10, 15, 30 min
 
   @HiveField(12)
-  final bool isRecurring;
+  final RecurrenceRule? recurrenceRule;
 
   Activity({
     required this.id,
     required this.title,
     this.description,
-    required this.dayOfWeek,
+    required this.startDate,
     required this.startHour,
     required this.startMinute,
     required this.endHour,
@@ -122,8 +123,14 @@ class Activity extends HiveObject {
     this.isCompleted = false,
     this.location,
     this.reminderMinutesBefore,
-    this.isRecurring = true,
+    this.recurrenceRule,
   });
+
+  /// Jour de la semaine dérivé (1 = Lundi, 7 = Dimanche)
+  int get dayOfWeek => startDate.weekday;
+
+  /// Indique si l'activité est récurrente
+  bool get isRecurring => recurrenceRule != null;
 
   /// Nom du jour en français
   String get dayName {
@@ -176,7 +183,7 @@ class Activity extends HiveObject {
     String? id,
     String? title,
     String? description,
-    int? dayOfWeek,
+    DateTime? startDate,
     int? startHour,
     int? startMinute,
     int? endHour,
@@ -185,13 +192,14 @@ class Activity extends HiveObject {
     bool? isCompleted,
     String? location,
     int? reminderMinutesBefore,
-    bool? isRecurring,
+    RecurrenceRule? recurrenceRule,
+    bool clearRecurrence = false,
   }) {
     return Activity(
       id: id ?? this.id,
       title: title ?? this.title,
       description: description ?? this.description,
-      dayOfWeek: dayOfWeek ?? this.dayOfWeek,
+      startDate: startDate ?? this.startDate,
       startHour: startHour ?? this.startHour,
       startMinute: startMinute ?? this.startMinute,
       endHour: endHour ?? this.endHour,
@@ -200,13 +208,13 @@ class Activity extends HiveObject {
       isCompleted: isCompleted ?? this.isCompleted,
       location: location ?? this.location,
       reminderMinutesBefore: reminderMinutesBefore ?? this.reminderMinutesBefore,
-      isRecurring: isRecurring ?? this.isRecurring,
+      recurrenceRule: clearRecurrence ? null : (recurrenceRule ?? this.recurrenceRule),
     );
   }
 
   @override
   String toString() {
-    return 'Activity(id: $id, title: $title, day: $dayName, time: $timeRangeFormatted, category: ${category.name}, isCompleted: $isCompleted)';
+    return 'Activity(id: $id, title: $title, startDate: $startDate, time: $timeRangeFormatted, category: ${category.name}, isCompleted: $isCompleted, recurring: $isRecurring)';
   }
 
   @override
@@ -216,7 +224,7 @@ class Activity extends HiveObject {
         other.id == id &&
         other.title == title &&
         other.description == description &&
-        other.dayOfWeek == dayOfWeek &&
+        other.startDate == startDate &&
         other.startHour == startHour &&
         other.startMinute == startMinute &&
         other.endHour == endHour &&
@@ -225,7 +233,7 @@ class Activity extends HiveObject {
         other.isCompleted == isCompleted &&
         other.location == location &&
         other.reminderMinutesBefore == reminderMinutesBefore &&
-        other.isRecurring == isRecurring;
+        other.recurrenceRule == recurrenceRule;
   }
 
   @override
@@ -234,7 +242,7 @@ class Activity extends HiveObject {
       id,
       title,
       description,
-      dayOfWeek,
+      startDate,
       startHour,
       startMinute,
       endHour,
@@ -243,7 +251,7 @@ class Activity extends HiveObject {
       isCompleted,
       location,
       reminderMinutesBefore,
-      isRecurring,
+      recurrenceRule,
     );
   }
 }

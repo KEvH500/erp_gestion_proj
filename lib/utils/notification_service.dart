@@ -3,6 +3,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import '../models/activity.dart';
+import '../models/recurrence_rule.dart';
+import '../services/recurrence_engine.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -130,28 +132,44 @@ class NotificationService {
     final reminderMinutes = activity.reminderMinutesBefore!;
     final totalStartMinutes = activity.startHour * 60 + activity.startMinute;
     int scheduledTotalMinutes = totalStartMinutes - reminderMinutes;
+    int dayOffset = 0;
 
-    int targetDayOfWeek = activity.dayOfWeek;
     if (scheduledTotalMinutes < 0) {
       // Le rappel tombe la veille
       scheduledTotalMinutes += 24 * 60;
-      targetDayOfWeek = (activity.dayOfWeek == 1) ? 7 : activity.dayOfWeek - 1;
+      dayOffset = -1;
     }
 
     final scheduledHour = scheduledTotalMinutes ~/ 60;
     final scheduledMinute = scheduledTotalMinutes % 60;
 
-    // Calcul de la prochaine occurrence
-    final scheduledDate = _nextInstanceOfDayAndTime(
-      targetDayOfWeek,
+    // Calcul de la prochaine occurrence réelle selon le moteur de récurrence
+    final scheduledDate = _nextOccurrenceForActivity(
+      activity,
       scheduledHour,
       scheduledMinute,
+      dayOffset,
     );
+
+    if (scheduledDate == null) {
+      debugPrint('Aucune occurrence future pour "${activity.title}".');
+      return;
+    }
 
     final body = reminderMinutes == 0
         ? 'Votre activité commence maintenant !'
         : 'Débute dans $reminderMinutes min (${activity.timeRangeFormatted})'
             '${activity.location != null ? ' - 📍 ${activity.location}' : ''}';
+
+    DateTimeComponents? matchComponents;
+    if (activity.isRecurring) {
+      final rule = activity.recurrenceRule!;
+      if (rule.frequency == RecurrenceFrequency.daily && rule.interval == 1 && rule.endType == RecurrenceEndType.never) {
+        matchComponents = DateTimeComponents.time;
+      } else if (rule.frequency == RecurrenceFrequency.weekly && rule.interval == 1 && rule.weekDaysList.length <= 1 && rule.endType == RecurrenceEndType.never) {
+        matchComponents = DateTimeComponents.dayOfWeekAndTime;
+      }
+    }
 
     try {
       await _notificationsPlugin.zonedSchedule(
@@ -163,13 +181,11 @@ class NotificationService {
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: activity.isRecurring
-            ? DateTimeComponents.dayOfWeekAndTime // Répétition hebdomadaire automatique
-            : DateTimeComponents.time,
+        matchDateTimeComponents: matchComponents,
         payload: activity.id,
       );
       debugPrint(
-        'Notification planifiée pour "${activity.title}" le jour $targetDayOfWeek à ${scheduledHour}h${scheduledMinute.toString().padLeft(2, '0')}',
+        'Notification planifiée pour "${activity.title}" le ${scheduledDate.day}/${scheduledDate.month}/${scheduledDate.year} à ${scheduledHour}h${scheduledMinute.toString().padLeft(2, '0')}',
       );
     } catch (e) {
       debugPrint('Erreur lors de la planification de notification: $e');
@@ -198,28 +214,38 @@ class NotificationService {
     }
   }
 
-  /// Calcule la prochaine instance d'un jour donné (1=Lun ... 7=Dim) à une heure et minute précises
-  tz.TZDateTime _nextInstanceOfDayAndTime(int dayOfWeek, int hour, int minute) {
+  /// Calcule la prochaine occurrence pour une activité selon le moteur de récurrence
+  tz.TZDateTime? _nextOccurrenceForActivity(
+    Activity activity,
+    int scheduledHour,
+    int scheduledMinute,
+    int dayOffset,
+  ) {
     final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
-    tz.TZDateTime scheduledDate = tz.TZDateTime(
-      tz.local,
-      now.year,
-      now.month,
-      now.day,
-      hour,
-      minute,
-    );
+    final today = DateTime(now.year, now.month, now.day);
 
-    // Ajuste le jour de la semaine (DateTime.monday = 1 ... DateTime.sunday = 7)
-    while (scheduledDate.weekday != dayOfWeek) {
-      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    for (int i = 0; i < 365; i++) {
+      final candidateDate = today.add(Duration(days: i));
+      if (RecurrenceEngine.occursOnDate(
+        startDate: activity.startDate,
+        rule: activity.recurrenceRule,
+        targetDate: candidateDate,
+      )) {
+        final notifDate = candidateDate.add(Duration(days: dayOffset));
+        final scheduledTZ = tz.TZDateTime(
+          tz.local,
+          notifDate.year,
+          notifDate.month,
+          notifDate.day,
+          scheduledHour,
+          scheduledMinute,
+        );
+
+        if (scheduledTZ.isAfter(now)) {
+          return scheduledTZ;
+        }
+      }
     }
-
-    // Si la date calculée est déjà passée aujourd'hui, on passe à la semaine suivante
-    if (scheduledDate.isBefore(now)) {
-      scheduledDate = scheduledDate.add(const Duration(days: 7));
-    }
-
-    return scheduledDate;
+    return null;
   }
 }

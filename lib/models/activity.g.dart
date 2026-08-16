@@ -20,7 +20,7 @@ class ActivityAdapter extends TypeAdapter<Activity> {
       id: fields[0] as String,
       title: fields[1] as String,
       description: fields[2] as String?,
-      dayOfWeek: fields[3] as int,
+      startDate: fields[3] as DateTime,
       startHour: fields[4] as int,
       startMinute: fields[5] as int,
       endHour: fields[6] as int,
@@ -29,7 +29,7 @@ class ActivityAdapter extends TypeAdapter<Activity> {
       isCompleted: fields[9] as bool,
       location: fields[10] as String?,
       reminderMinutesBefore: fields[11] as int?,
-      isRecurring: fields[12] as bool,
+      recurrenceRule: fields[12] as RecurrenceRule?,
     );
   }
 
@@ -44,7 +44,7 @@ class ActivityAdapter extends TypeAdapter<Activity> {
       ..writeByte(2)
       ..write(obj.description)
       ..writeByte(3)
-      ..write(obj.dayOfWeek)
+      ..write(obj.startDate)
       ..writeByte(4)
       ..write(obj.startHour)
       ..writeByte(5)
@@ -62,7 +62,7 @@ class ActivityAdapter extends TypeAdapter<Activity> {
       ..writeByte(11)
       ..write(obj.reminderMinutesBefore)
       ..writeByte(12)
-      ..write(obj.isRecurring);
+      ..write(obj.recurrenceRule);
   }
 
   @override

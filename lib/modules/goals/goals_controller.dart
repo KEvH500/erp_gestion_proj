@@ -19,11 +19,11 @@ class GoalsController extends BaseController {
     isLoading.value = true;
     try {
       final rawGoals = goalRepo.getAllGoals();
-      final activities = activityRepo.getAllActivities();
+      final dayActivities = activityRepo
+          .getActivitiesForDate(selectedDate.value)
+          .where((a) => a.isCompleted)
+          .toList();
       final unplanned = unplannedRepo.getAllTasks();
-
-      final dayOfWeek = selectedDate.value.weekday;
-      final dayActivities = activities.where((a) => a.dayOfWeek == dayOfWeek && a.isCompleted).toList();
       final dayUnplanned = unplanned.where((t) {
         return t.date.year == selectedDate.value.year &&
             t.date.month == selectedDate.value.month &&

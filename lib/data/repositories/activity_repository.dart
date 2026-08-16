@@ -1,8 +1,10 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../models/activity.dart';
+import '../../services/recurrence_engine.dart';
 
 abstract class IActivityRepository {
   List<Activity> getAllActivities();
+  List<Activity> getActivitiesForDate(DateTime date);
   List<Activity> getActivitiesForDay(int dayOfWeek);
   Future<void> addActivity(Activity activity);
   Future<void> updateActivity(Activity activity);
@@ -22,6 +24,25 @@ class ActivityRepository implements IActivityRepository {
   @override
   List<Activity> getAllActivities() {
     return _box.values.toList();
+  }
+
+  @override
+  List<Activity> getActivitiesForDate(DateTime date) {
+    final activities = _box.values
+        .where((activity) => RecurrenceEngine.occursOnDate(
+              startDate: activity.startDate,
+              rule: activity.recurrenceRule,
+              targetDate: date,
+            ))
+        .toList();
+
+    activities.sort((a, b) {
+      final aStart = a.startHour * 60 + a.startMinute;
+      final bStart = b.startHour * 60 + b.startMinute;
+      return aStart.compareTo(bStart);
+    });
+
+    return activities;
   }
 
   @override

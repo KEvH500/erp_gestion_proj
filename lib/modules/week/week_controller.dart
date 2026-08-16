@@ -20,19 +20,14 @@ class WeekController extends BaseController {
     loadData();
   }
 
-  /// Chargement et regroupement des activités et tâches
+  /// Chargement et regroupement des activités et tâches pour la semaine sélectionnée
   Future<void> loadData() async {
     isLoading.value = true;
     try {
-      final activities = activityRepo.getAllActivities();
       final grouped = <int, List<Activity>>{};
       for (int i = 1; i <= 7; i++) {
-        final dayActs = activities.where((a) => a.dayOfWeek == i).toList();
-        dayActs.sort((a, b) {
-          final aStart = a.startHour * 60 + a.startMinute;
-          final bStart = b.startHour * 60 + b.startMinute;
-          return aStart.compareTo(bStart);
-        });
+        final date = getDateForDay(i);
+        final dayActs = activityRepo.getActivitiesForDate(date);
         grouped[i] = dayActs;
       }
       activitiesByDay.assignAll(grouped);
@@ -106,14 +101,17 @@ class WeekController extends BaseController {
   // Actions de navigation & calendrier
   void previousWeek() {
     weekOffset.value--;
+    loadData();
   }
 
   void nextWeek() {
     weekOffset.value++;
+    loadData();
   }
 
   void resetToCurrentWeek() {
     weekOffset.value = 0;
+    loadData();
   }
 
   void onBottomNavSelected(int index) {
@@ -136,8 +134,9 @@ class WeekController extends BaseController {
     )?.then((_) => loadData());
   }
 
-  void goToAddActivity() {
-    Get.toNamed(Routes.ACTIVITY_ADD)?.then((_) => loadData());
+  void goToAddActivity([int? dayOfWeek]) {
+    final date = dayOfWeek != null ? getDateForDay(dayOfWeek) : DateTime.now();
+    Get.toNamed('${Routes.ACTIVITY_ADD}?date=${date.toIso8601String()}', arguments: date)?.then((_) => loadData());
   }
 
   void goToSettings() {

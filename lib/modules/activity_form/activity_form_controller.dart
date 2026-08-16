@@ -4,6 +4,7 @@ import 'package:reactive_forms/reactive_forms.dart';
 import 'package:uuid/uuid.dart';
 import '../../app/controllers/base_controller.dart';
 import '../../models/activity.dart';
+import '../../models/recurrence_rule.dart';
 import 'task_form_model.dart';
 
 /// Contrôleur GetX pour le formulaire d'activité / tâche utilisant reactive_forms
@@ -15,7 +16,6 @@ class ActivityFormController extends BaseController {
   Activity? existingActivity;
 
   // Jours et options de rappel réactifs chargés dynamiquement depuis SQLite
-  final days = <Map<String, dynamic>>[].obs;
   final reminderOptions = <Map<String, dynamic>>[].obs;
 
   @override
@@ -33,7 +33,14 @@ class ActivityFormController extends BaseController {
 
   void _initForm() {
     int? defaultDay;
-    if (Get.parameters.containsKey('day')) {
+    DateTime? defaultStartDate;
+
+    if (Get.parameters.containsKey('date')) {
+      final dateParam = DateTime.tryParse(Get.parameters['date'] ?? '');
+      if (dateParam != null) {
+        defaultStartDate = dateParam;
+      }
+    } else if (Get.parameters.containsKey('day')) {
       final dayParam = int.tryParse(Get.parameters['day'] ?? '1');
       if (dayParam != null && dayParam >= 1 && dayParam <= 7) {
         defaultDay = dayParam;
@@ -43,31 +50,19 @@ class ActivityFormController extends BaseController {
     if (Get.arguments is Activity) {
       existingActivity = Get.arguments as Activity;
       isEditing.value = true;
+    } else if (Get.arguments is DateTime) {
+      defaultStartDate = Get.arguments as DateTime;
     }
 
     form = buildTaskForm(
       existingActivity: existingActivity,
+      defaultStartDate: defaultStartDate,
       defaultDayOfWeek: defaultDay,
     );
   }
 
   Future<void> loadConfigFromSqlite() async {
     try {
-      final activeDays = await configRepo.getActiveDays();
-      if (activeDays.isNotEmpty) {
-        days.assignAll(activeDays);
-      } else {
-        days.assignAll(const [
-          {'value': 1, 'label': 'Lundi'},
-          {'value': 2, 'label': 'Mardi'},
-          {'value': 3, 'label': 'Mercredi'},
-          {'value': 4, 'label': 'Jeudi'},
-          {'value': 5, 'label': 'Vendredi'},
-          {'value': 6, 'label': 'Samedi'},
-          {'value': 7, 'label': 'Dimanche'},
-        ]);
-      }
-
       final activeReminders = await configRepo.getActiveReminderOptions();
       if (activeReminders.isNotEmpty) {
         reminderOptions.assignAll(activeReminders);
@@ -82,15 +77,6 @@ class ActivityFormController extends BaseController {
         ]);
       }
     } catch (_) {
-      days.assignAll(const [
-        {'value': 1, 'label': 'Lundi'},
-        {'value': 2, 'label': 'Mardi'},
-        {'value': 3, 'label': 'Mercredi'},
-        {'value': 4, 'label': 'Jeudi'},
-        {'value': 5, 'label': 'Vendredi'},
-        {'value': 6, 'label': 'Samedi'},
-        {'value': 7, 'label': 'Dimanche'},
-      ]);
       reminderOptions.assignAll(const [
         {'value': null, 'label': 'Aucun rappel'},
         {'value': 5, 'label': '5 minutes avant'},
@@ -100,6 +86,21 @@ class ActivityFormController extends BaseController {
         {'value': 60, 'label': '1 heure avant'},
       ]);
     }
+  }
+
+  /// Bascule un jour de la semaine dans la sélection multi-jours
+  void toggleWeekDay(int dayOfWeek) {
+    final control = form.control('recurrenceWeekDays') as FormControl<List<int>>;
+    final currentList = List<int>.from(control.value ?? []);
+    if (currentList.contains(dayOfWeek)) {
+      if (currentList.length > 1) {
+        currentList.remove(dayOfWeek);
+      }
+    } else {
+      currentList.add(dayOfWeek);
+      currentList.sort();
+    }
+    control.value = currentList;
   }
 
   Future<void> saveActivity() async {
@@ -122,12 +123,34 @@ class ActivityFormController extends BaseController {
     final title = (value['title'] as String?)?.trim() ?? '';
     final description = (value['description'] as String?)?.trim();
     final location = (value['location'] as String?)?.trim();
-    final dayOfWeek = (value['dayOfWeek'] as int?) ?? 1;
+    final startDate = (value['startDate'] as DateTime?) ?? DateTime.now();
     final startTime = (value['startTime'] as TimeOfDay?) ?? const TimeOfDay(hour: 8, minute: 0);
     final endTime = (value['endTime'] as TimeOfDay?) ?? const TimeOfDay(hour: 9, minute: 30);
     final category = (value['category'] as ActivityCategory?) ?? ActivityCategory.cours;
-    final isRecurring = (value['isRecurring'] as bool?) ?? true;
     final reminderMinutes = value['reminderMinutesBefore'] as int?;
+
+    // Récurrence
+    final isRecurring = (value['isRecurring'] as bool?) ?? false;
+    RecurrenceRule? recurrenceRule;
+
+    if (isRecurring) {
+      final frequency = (value['recurrenceFrequency'] as RecurrenceFrequency?) ?? RecurrenceFrequency.weekly;
+      final interval = (value['recurrenceInterval'] as int?) ?? 1;
+      final weekDays = (value['recurrenceWeekDays'] as List<int>?) ?? [startDate.weekday];
+      final endType = (value['recurrenceEndType'] as RecurrenceEndType?) ?? RecurrenceEndType.never;
+      final untilDate = value['recurrenceUntilDate'] as DateTime?;
+      final count = value['recurrenceCount'] as int?;
+
+      recurrenceRule = RecurrenceRule(
+        id: existingActivity?.recurrenceRule?.id ?? const Uuid().v4(),
+        frequency: frequency,
+        interval: interval > 0 ? interval : 1,
+        byWeekDays: frequency == RecurrenceFrequency.weekly ? weekDays.join(',') : null,
+        endType: endType,
+        untilDate: endType == RecurrenceEndType.untilDate ? untilDate : null,
+        occurrenceCount: endType == RecurrenceEndType.count ? count : null,
+      );
+    }
 
     isSaving.value = true;
     try {
@@ -136,13 +159,14 @@ class ActivityFormController extends BaseController {
           title: title,
           description: description?.isEmpty ?? true ? null : description,
           location: location?.isEmpty ?? true ? null : location,
-          dayOfWeek: dayOfWeek,
+          startDate: startDate,
           startHour: startTime.hour,
           startMinute: startTime.minute,
           endHour: endTime.hour,
           endMinute: endTime.minute,
           category: category,
-          isRecurring: isRecurring,
+          recurrenceRule: recurrenceRule,
+          clearRecurrence: !isRecurring,
           reminderMinutesBefore: reminderMinutes,
         );
 
@@ -161,13 +185,13 @@ class ActivityFormController extends BaseController {
           title: title,
           description: description?.isEmpty ?? true ? null : description,
           location: location?.isEmpty ?? true ? null : location,
-          dayOfWeek: dayOfWeek,
+          startDate: startDate,
           startHour: startTime.hour,
           startMinute: startTime.minute,
           endHour: endTime.hour,
           endMinute: endTime.minute,
           category: category,
-          isRecurring: isRecurring,
+          recurrenceRule: recurrenceRule,
           reminderMinutesBefore: reminderMinutes,
         );
 

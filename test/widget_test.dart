@@ -8,7 +8,7 @@ void main() {
     final activity = Activity(
       id: 'act-1',
       title: 'Réunion projet',
-      dayOfWeek: 1,
+      startDate: DateTime(2026, 8, 17),
       startHour: 9,
       startMinute: 0,
       endHour: 10,

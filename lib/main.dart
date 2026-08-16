@@ -8,6 +8,7 @@ import 'data/repositories/activity_repository.dart';
 import 'data/repositories/goal_repository.dart';
 import 'data/repositories/unplanned_task_repository.dart';
 import 'models/activity.dart';
+import 'models/recurrence_rule.dart';
 import 'models/goal.dart';
 import 'models/unplanned_task.dart';
 import 'modules/settings/settings_controller.dart';
@@ -44,6 +45,15 @@ void main() async {
   }
   if (!Hive.isAdapterRegistered(6)) {
     Hive.registerAdapter(GoalAdapter());
+  }
+  if (!Hive.isAdapterRegistered(7)) {
+    Hive.registerAdapter(RecurrenceFrequencyAdapter());
+  }
+  if (!Hive.isAdapterRegistered(8)) {
+    Hive.registerAdapter(RecurrenceEndTypeAdapter());
+  }
+  if (!Hive.isAdapterRegistered(9)) {
+    Hive.registerAdapter(RecurrenceRuleAdapter());
   }
 
   // 3. Ouverture des boîtes Hive

@@ -4,6 +4,7 @@ import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import '../../models/activity.dart';
+import '../../models/recurrence_rule.dart';
 import 'daos/project_dao.dart';
 import 'daos/task_dao.dart';
 import 'daos/task_comment_dao.dart';
@@ -19,7 +20,20 @@ class Projects extends Table {
   BoolColumn get isArchived => boolean().withDefault(const Constant(false))();
 }
 
-/// Table `tasks` (concept enrichi de l'ancienne entité Activity)
+/// Table `recurrence_rules`
+@DataClassName('RecurrenceRuleEntry')
+class RecurrenceRules extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get frequency => intEnum<RecurrenceFrequency>()();
+  IntColumn get interval => integer().withDefault(const Constant(1))();
+  TextColumn get byWeekDays => text().nullable()();
+  IntColumn get endType => intEnum<RecurrenceEndType>().withDefault(const Constant(0))();
+  DateTimeColumn get untilDate => dateTime().nullable()();
+  IntColumn get occurrenceCount => integer().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+}
+
+/// Table `tasks` (concept enrichi avec récurrence universelle)
 class Tasks extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get projectId => integer()
@@ -30,18 +44,21 @@ class Tasks extends Table {
   TextColumn get description => text().nullable()();
 
   // Calendrier et créneau horaire
-  IntColumn get dayOfWeek => integer()(); // 1 = Lundi, 7 = Dimanche
+  DateTimeColumn get startDate => dateTime()(); // Date réelle de début / ancrage
   IntColumn get startHour => integer()();
   IntColumn get startMinute => integer()();
   IntColumn get endHour => integer()();
   IntColumn get endMinute => integer()();
 
+  // Règle de récurrence (nullable -> null = tâche ponctuelle)
+  IntColumn get recurrenceRuleId => integer()
+      .nullable()
+      .references(RecurrenceRules, #id, onDelete: KeyAction.setNull)();
+
   // Métadonnées
   IntColumn get category => intEnum<ActivityCategory>()();
   TextColumn get location => text().nullable()();
   IntColumn get reminderMinutesBefore => integer().nullable()();
-  BoolColumn get isRecurring => boolean().withDefault(const Constant(true))();
-  DateTimeColumn get recurrenceEndDate => dateTime().nullable()();
 
   // Couleurs et statuts
   IntColumn get colorValue => integer().withDefault(const Constant(0xFF3B82F6))();
@@ -65,19 +82,26 @@ class TaskComments extends Table {
 }
 
 @DriftDatabase(
-  tables: [Projects, Tasks, TaskComments],
+  tables: [Projects, RecurrenceRules, Tasks, TaskComments],
   daos: [ProjectDao, TaskDao, TaskCommentDao],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? e]) : super(e ?? _openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
+    },
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.createTable(recurrenceRules);
+        await m.addColumn(tasks, tasks.startDate);
+        await m.addColumn(tasks, tasks.recurrenceRuleId);
+      }
     },
   );
 }

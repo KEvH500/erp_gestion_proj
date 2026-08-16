@@ -3,7 +3,17 @@ import '../database.dart';
 
 part 'task_dao.g.dart';
 
-@DriftAccessor(tables: [Tasks, Projects])
+class TaskWithRecurrence {
+  final Task task;
+  final RecurrenceRuleEntry? recurrenceRule;
+
+  TaskWithRecurrence({
+    required this.task,
+    this.recurrenceRule,
+  });
+}
+
+@DriftAccessor(tables: [Tasks, Projects, RecurrenceRules])
 class TaskDao extends DatabaseAccessor<AppDatabase> with _$TaskDaoMixin {
   TaskDao(super.db);
 
@@ -12,28 +22,42 @@ class TaskDao extends DatabaseAccessor<AppDatabase> with _$TaskDaoMixin {
     return (select(tasks)
           ..where((t) => t.isArchived.equals(false))
           ..orderBy([
-            (t) => OrderingTerm.asc(t.dayOfWeek),
+            (t) => OrderingTerm.asc(t.startDate),
             (t) => OrderingTerm.asc(t.startHour),
             (t) => OrderingTerm.asc(t.startMinute),
           ]))
         .watch();
   }
 
-  Stream<List<Task>> watchActiveTasksForDay(int dayOfWeek) {
-    return (select(tasks)
-          ..where((t) => t.dayOfWeek.equals(dayOfWeek) & t.isArchived.equals(false))
-          ..orderBy([
-            (t) => OrderingTerm.asc(t.startHour),
-            (t) => OrderingTerm.asc(t.startMinute),
-          ]))
-        .watch();
+  Stream<List<TaskWithRecurrence>> watchActiveTasksWithRecurrence() {
+    final query = select(tasks).join([
+      leftOuterJoin(
+        recurrenceRules,
+        recurrenceRules.id.equalsExp(tasks.recurrenceRuleId),
+      ),
+    ])
+      ..where(tasks.isArchived.equals(false))
+      ..orderBy([
+        OrderingTerm.asc(tasks.startDate),
+        OrderingTerm.asc(tasks.startHour),
+        OrderingTerm.asc(tasks.startMinute),
+      ]);
+
+    return query.watch().map((rows) {
+      return rows.map((row) {
+        return TaskWithRecurrence(
+          task: row.readTable(tasks),
+          recurrenceRule: row.readTableOrNull(recurrenceRules),
+        );
+      }).toList();
+    });
   }
 
   Stream<List<Task>> watchTasksForProject(int projectId) {
     return (select(tasks)
           ..where((t) => t.projectId.equals(projectId) & t.isArchived.equals(false))
           ..orderBy([
-            (t) => OrderingTerm.asc(t.dayOfWeek),
+            (t) => OrderingTerm.asc(t.startDate),
             (t) => OrderingTerm.asc(t.startHour),
           ]))
         .watch();
@@ -55,21 +79,34 @@ class TaskDao extends DatabaseAccessor<AppDatabase> with _$TaskDaoMixin {
     return (select(tasks)
           ..where((t) => t.isArchived.equals(false))
           ..orderBy([
-            (t) => OrderingTerm.asc(t.dayOfWeek),
+            (t) => OrderingTerm.asc(t.startDate),
             (t) => OrderingTerm.asc(t.startHour),
             (t) => OrderingTerm.asc(t.startMinute),
           ]))
         .get();
   }
 
-  Future<List<Task>> getActiveTasksForDay(int dayOfWeek) {
-    return (select(tasks)
-          ..where((t) => t.dayOfWeek.equals(dayOfWeek) & t.isArchived.equals(false))
-          ..orderBy([
-            (t) => OrderingTerm.asc(t.startHour),
-            (t) => OrderingTerm.asc(t.startMinute),
-          ]))
-        .get();
+  Future<List<TaskWithRecurrence>> getActiveTasksWithRecurrence() async {
+    final query = select(tasks).join([
+      leftOuterJoin(
+        recurrenceRules,
+        recurrenceRules.id.equalsExp(tasks.recurrenceRuleId),
+      ),
+    ])
+      ..where(tasks.isArchived.equals(false))
+      ..orderBy([
+        OrderingTerm.asc(tasks.startDate),
+        OrderingTerm.asc(tasks.startHour),
+        OrderingTerm.asc(tasks.startMinute),
+      ]);
+
+    final rows = await query.get();
+    return rows.map((row) {
+      return TaskWithRecurrence(
+        task: row.readTable(tasks),
+        recurrenceRule: row.readTableOrNull(recurrenceRules),
+      );
+    }).toList();
   }
 
   Future<List<Task>> getArchivedTasks() {
@@ -86,7 +123,11 @@ class TaskDao extends DatabaseAccessor<AppDatabase> with _$TaskDaoMixin {
   // CRUD
   Future<int> insertTask(TasksCompanion task) => into(tasks).insert(task);
 
-  Future<bool> updateTask(Task task) => update(tasks).replace(task.copyWith(updatedAt: DateTime.now()));
+  Future<int> insertRecurrenceRule(RecurrenceRulesCompanion rule) =>
+      into(recurrenceRules).insert(rule);
+
+  Future<bool> updateTask(Task task) =>
+      update(tasks).replace(task.copyWith(updatedAt: DateTime.now()));
 
   Future<int> toggleTaskCompletion(int id) async {
     final task = await getTaskById(id);

@@ -62,12 +62,7 @@ class DayController extends BaseController {
   Future<void> loadDayData() async {
     isLoading.value = true;
     try {
-      final acts = activityRepo.getActivitiesForDay(selectedDay.value);
-      acts.sort((a, b) {
-        final aStart = a.startHour * 60 + a.startMinute;
-        final bStart = b.startHour * 60 + b.startMinute;
-        return aStart.compareTo(bStart);
-      });
+      final acts = activityRepo.getActivitiesForDate(selectedDate.value);
       activities.assignAll(acts);
 
       final unp = unplannedRepo.getTasksForDate(selectedDate.value);
@@ -153,7 +148,8 @@ class DayController extends BaseController {
 
   void goToAddActivity() {
     Get.toNamed(
-      '${Routes.ACTIVITY_ADD}?day=${selectedDay.value}',
+      '${Routes.ACTIVITY_ADD}?date=${selectedDate.value.toIso8601String()}',
+      arguments: selectedDate.value,
     )?.then((_) => loadDayData());
   }
 

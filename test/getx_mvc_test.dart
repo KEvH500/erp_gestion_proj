@@ -12,16 +12,24 @@ import 'package:erp_gestion_proj/modules/day/day_controller.dart';
 import 'package:erp_gestion_proj/modules/goals/goals_controller.dart';
 import 'package:erp_gestion_proj/modules/unplanned_tasks/unplanned_tasks_controller.dart';
 import 'package:erp_gestion_proj/models/activity.dart';
+import 'package:erp_gestion_proj/models/recurrence_rule.dart';
 import 'package:erp_gestion_proj/models/unplanned_task.dart';
 import 'package:erp_gestion_proj/models/goal.dart';
+import 'package:erp_gestion_proj/services/recurrence_engine.dart';
 import 'package:erp_gestion_proj/utils/notification_service.dart';
-
-
 
 class FakeActivityRepository implements IActivityRepository {
   final List<Activity> _list = [];
   @override
   List<Activity> getAllActivities() => List.from(_list);
+  @override
+  List<Activity> getActivitiesForDate(DateTime date) => _list
+      .where((a) => RecurrenceEngine.occursOnDate(
+            startDate: a.startDate,
+            rule: a.recurrenceRule,
+            targetDate: date,
+          ))
+      .toList();
   @override
   List<Activity> getActivitiesForDay(int dayOfWeek) =>
       _list.where((a) => a.dayOfWeek == dayOfWeek).toList();
@@ -134,15 +142,23 @@ void main() {
   group('GetX MVC WeekController tests', () {
     test('WeekController loads and navigates weeks', () async {
       final actRepo = Get.find<IActivityRepository>();
+      final now = DateTime.now();
+      final currentMonday = now.subtract(Duration(days: now.weekday - 1));
+
       await actRepo.addActivity(Activity(
         id: 'act-1',
         title: 'Mathématiques',
-        dayOfWeek: 1, // Lundi
+        startDate: currentMonday,
         startHour: 8,
         startMinute: 0,
         endHour: 10,
         endMinute: 0,
         category: ActivityCategory.cours,
+        recurrenceRule: RecurrenceRule(
+          id: 'r-1',
+          frequency: RecurrenceFrequency.weekly,
+          interval: 1,
+        ),
       ));
 
       final controller = WeekController();
@@ -164,10 +180,14 @@ void main() {
   group('GetX MVC DayController tests', () {
     test('DayController loads data for day', () async {
       final actRepo = Get.find<IActivityRepository>();
+      final now = DateTime.now();
+      final currentMonday = now.subtract(Duration(days: now.weekday - 1));
+      final currentTuesday = currentMonday.add(const Duration(days: 1));
+
       await actRepo.addActivity(Activity(
         id: 'act-2',
         title: 'Sport',
-        dayOfWeek: 2, // Mardi
+        startDate: currentTuesday,
         startHour: 14,
         startMinute: 0,
         endHour: 16,
@@ -176,6 +196,7 @@ void main() {
       ));
 
       final controller = DayController();
+      controller.selectedDate.value = currentTuesday;
       controller.selectedDay.value = 2;
       controller.onInit();
       await controller.loadDayData();
@@ -203,7 +224,7 @@ void main() {
       await actRepo.addActivity(Activity(
         id: 'act-3',
         title: 'Physique',
-        dayOfWeek: now.weekday,
+        startDate: now,
         startHour: 8,
         startMinute: 0,
         endHour: 10,

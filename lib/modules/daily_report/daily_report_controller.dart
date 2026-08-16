@@ -24,11 +24,9 @@ class DailyReportController extends BaseController {
     isLoading.value = true;
     try {
       final date = selectedDate.value;
-      final activities = activityRepo.getAllActivities();
+      final dayActivities = activityRepo.getActivitiesForDate(date);
       final unplanned = unplannedRepo.getAllTasks();
       final goals = goalRepo.getAllGoals();
-
-      final dayActivities = activities.where((a) => a.dayOfWeek == date.weekday).toList();
       final dayUnplanned = unplanned.where((t) {
         return t.date.year == date.year &&
             t.date.month == date.month &&

@@ -199,7 +199,7 @@ class UnplannedTaskListController extends BaseController {
                     id: const Uuid().v4(),
                     title: task.title,
                     description: task.description,
-                    dayOfWeek: task.date.weekday,
+                    startDate: task.date,
                     startHour: startTime.hour,
                     startMinute: startTime.minute,
                     endHour: endTime.hour,
