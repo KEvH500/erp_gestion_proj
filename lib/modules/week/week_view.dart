@@ -3,6 +3,9 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../../models/activity.dart';
 import '../../models/unplanned_task.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/core/app_text.dart';
+import '../../widgets/core/app_card.dart';
 import '../../widgets/recurrence/shift_occurrence_modal.dart';
 import '../unplanned_tasks/widgets/quick_task_sheet.dart';
 import 'week_controller.dart';
@@ -524,46 +527,35 @@ class _DayCard extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              Text(
+                              AppText.heading(
                                 _dayName,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  color: isToday
-                                      ? theme.colorScheme.primary
-                                      : null,
-                                ),
+                                fontSize: 16,
+                                color: isToday ? AppColors.accentPrimary : AppColors.textPrimary,
                               ),
                               if (isToday) ...[
                                 const SizedBox(width: 8),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
+                                    horizontal: 7,
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: theme.colorScheme.primary,
-                                    borderRadius: BorderRadius.circular(10),
+                                    color: AppColors.accentPrimary,
+                                    borderRadius: BorderRadius.circular(6),
                                   ),
-                                  child: const Text(
+                                  child: const AppText.label(
                                     'AUJOURD\'HUI',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 0.5,
-                                    ),
+                                    color: AppColors.background,
+                                    fontSize: 9,
+                                    letterSpacing: 0.5,
                                   ),
                                 ),
                               ],
                             ],
                           ),
-                          Text(
+                          AppText.caption(
                             formattedDate,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
+                            color: AppColors.textSecondary,
                           ),
                         ],
                       ),
@@ -579,61 +571,55 @@ class _DayCard extends StatelessWidget {
                           ),
                           margin: const EdgeInsets.only(right: 6),
                           decoration: BoxDecoration(
-                            color: Colors.amber.withValues(
-                                alpha: isDark ? 0.25 : 0.15),
-                            borderRadius: BorderRadius.circular(12),
+                            color: AppColors.topaze.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: Colors.amber.withValues(alpha: 0.5),
+                              color: AppColors.topaze.withValues(alpha: 0.5),
                             ),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               const Icon(Icons.bolt_rounded,
-                                  size: 14, color: Colors.amber),
-                              const SizedBox(width: 2),
-                              Text(
+                                  size: 13, color: AppColors.topaze),
+                              const SizedBox(width: 3),
+                              AppText.label(
                                 '${pendingUnplanned.length}',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 11,
-                                  color: isDark
-                                      ? Colors.amber[300]
-                                      : const Color(0xFFB45309),
-                                ),
+                                color: AppColors.topaze,
+                                fontSize: 11,
                               ),
                             ],
                           ),
                         ),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
+                          horizontal: 9,
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
                           color: activities.isEmpty
-                              ? (isDark
-                                  ? const Color(0xFF334155)
-                                  : const Color(0xFFF1F5F9))
-                              : theme.colorScheme.primaryContainer
-                                  .withValues(alpha: 0.4),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          '${activities.length} act.',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
+                              ? AppColors.surfaceVariant
+                              : AppColors.surfaceVariant,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
                             color: activities.isEmpty
-                                ? theme.colorScheme.onSurfaceVariant
-                                : theme.colorScheme.primary,
+                                ? AppColors.border
+                                : AppColors.border,
                           ),
+                        ),
+                        child: AppText.caption(
+                          '${activities.length} act.',
+                          color: activities.isEmpty
+                              ? AppColors.textMuted
+                              : AppColors.textPrimary,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       const SizedBox(width: 4),
-                      Icon(
+                      const Icon(
                         Icons.chevron_right_rounded,
-                        color: theme.colorScheme.onSurfaceVariant,
+                        color: AppColors.textSecondary,
+                        size: 20,
                       ),
                     ],
                   ),
@@ -642,8 +628,8 @@ class _DayCard extends StatelessWidget {
               if (activities.isNotEmpty || unplannedTasks.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     ...activities.map(
                       (activity) => InkWell(
@@ -667,50 +653,55 @@ class _DayCard extends StatelessWidget {
                                   onUpdated: () => Get.find<WeekController>().loadData(),
                                 )
                             : null,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: const BorderRadius.horizontal(right: Radius.circular(8)),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
-                            vertical: 4,
+                            vertical: 5,
                           ),
                           decoration: BoxDecoration(
-                            color: activity.category.color.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: activity.category.color.withValues(alpha: 0.3),
+                            color: AppColors.surfaceVariant,
+                            borderRadius: const BorderRadius.only(
+                              topRight: Radius.circular(8),
+                              bottomRight: Radius.circular(8),
+                            ),
+                            border: Border(
+                              left: BorderSide(
+                                color: activity.category.color,
+                                width: 3,
+                              ),
+                              top: const BorderSide(color: AppColors.border, width: 0.5),
+                              right: const BorderSide(color: AppColors.border, width: 0.5),
+                              bottom: const BorderSide(color: AppColors.border, width: 0.5),
                             ),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: activity.category.color,
-                                  shape: BoxShape.circle,
-                                ),
+                              AppText.body(
+                                activity.title,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                decoration: activity.isCompleted
+                                    ? TextDecoration.lineThrough
+                                    : null,
+                                color: activity.isCompleted
+                                    ? AppColors.textMuted
+                                    : AppColors.textPrimary,
                               ),
                               const SizedBox(width: 6),
-                              Text(
-                                activity.title,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  decoration: activity.isCompleted
-                                      ? TextDecoration.lineThrough
-                                      : null,
-                                  color: activity.isCompleted
-                                      ? theme.colorScheme.onSurfaceVariant
-                                      : null,
-                                ),
+                              // Horaires en police IBM Plex Mono (variant time)
+                              AppText.time(
+                                activity.timeRangeFormatted,
+                                fontSize: 10,
+                                color: activity.category.color,
                               ),
                               if (activity.isRecurring) ...[
                                 const SizedBox(width: 4),
                                 const Icon(
                                   Icons.sync_rounded,
                                   size: 11,
-                                  color: Colors.blueAccent,
+                                  color: AppColors.accentPrimary,
                                 ),
                               ],
                             ],
@@ -722,30 +713,32 @@ class _DayCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
-                          vertical: 4,
+                          vertical: 5,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.amber.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: Colors.amber.withValues(alpha: 0.4),
+                          color: AppColors.surfaceVariant,
+                          borderRadius: const BorderRadius.only(
+                            topRight: Radius.circular(8),
+                            bottomRight: Radius.circular(8),
+                          ),
+                          border: const Border(
+                            left: BorderSide(color: AppColors.topaze, width: 3),
+                            top: BorderSide(color: AppColors.border, width: 0.5),
+                            right: BorderSide(color: AppColors.border, width: 0.5),
+                            bottom: BorderSide(color: AppColors.border, width: 0.5),
                           ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const Icon(Icons.bolt_rounded,
-                                size: 12, color: Colors.amber),
+                                size: 12, color: AppColors.topaze),
                             const SizedBox(width: 4),
-                            Text(
+                            AppText.body(
                               '${pendingUnplanned.length} imprévu(s)',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: isDark
-                                    ? Colors.amber[300]
-                                    : const Color(0xFFB45309),
-                              ),
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.topaze,
                             ),
                           ],
                         ),

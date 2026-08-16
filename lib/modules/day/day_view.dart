@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../models/activity.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/core/app_text.dart';
+import '../../widgets/core/app_card.dart';
 import '../../widgets/recurrence/shift_occurrence_modal.dart';
 import '../unplanned_tasks/widgets/quick_task_sheet.dart';
 import '../unplanned_tasks/widgets/unplanned_task_list_widget.dart';
@@ -536,10 +539,10 @@ class DayView extends GetView<DayController> {
                   Container(
                     margin: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      color: AppColors.surface,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                        color: AppColors.border,
                       ),
                     ),
                     child: SizedBox(
@@ -560,9 +563,7 @@ class DayView extends GetView<DayController> {
                                 decoration: BoxDecoration(
                                   border: Border(
                                     bottom: BorderSide(
-                                      color: isDark
-                                          ? const Color(0xFF334155).withValues(alpha: 0.5)
-                                          : const Color(0xFFE2E8F0).withValues(alpha: 0.8),
+                                      color: AppColors.border.withValues(alpha: 0.6),
                                       width: 1,
                                     ),
                                   ),
@@ -573,13 +574,10 @@ class DayView extends GetView<DayController> {
                                       width: DayController.timeColumnWidth,
                                       padding: const EdgeInsets.only(left: 8, top: 4),
                                       alignment: Alignment.topLeft,
-                                      child: Text(
+                                      child: AppText.time(
                                         '${hour.toString().padLeft(2, '0')}:00',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                          color: theme.colorScheme.onSurfaceVariant,
-                                        ),
+                                        fontSize: 11,
+                                        color: AppColors.textMuted,
                                       ),
                                     ),
                                     const Expanded(child: SizedBox()),
@@ -621,6 +619,49 @@ class DayView extends GetView<DayController> {
                               }).toList(),
                             ),
                           ),
+
+                          // Repère visuel doré marquant l'heure actuelle ("Cadran de précision")
+                          Obx(() {
+                            if (!controller.isSelectedDateToday) return const SizedBox.shrink();
+                            final currentMin = controller.currentMinuteOfDay.value;
+                            const baseMin = DayController.startHour * 60;
+                            const maxMin = (DayController.endHour + 1) * 60;
+                            if (currentMin < baseMin || currentMin > maxMin) {
+                              return const SizedBox.shrink();
+                            }
+                            final top = ((currentMin - baseMin) / 60.0) * DayController.hourHeight;
+
+                            return Positioned(
+                              top: top - 4,
+                              left: DayController.timeColumnWidth - 4,
+                              right: 0,
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: const BoxDecoration(
+                                      color: AppColors.accentPrimary,
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Color(0x66E8A33D),
+                                          blurRadius: 6,
+                                          spreadRadius: 1,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Container(
+                                      height: 2,
+                                      color: AppColors.accentPrimary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
                         ],
                       ),
                     ),
@@ -682,8 +723,6 @@ class _DayTabItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final now = DateTime.now();
     final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
 
@@ -691,34 +730,31 @@ class _DayTabItem extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 3),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
             color: isSelected
-                ? theme.colorScheme.primary
+                ? AppColors.accentPrimary
                 : (isToday
-                    ? theme.colorScheme.primary.withValues(alpha: isDark ? 0.2 : 0.1)
+                    ? AppColors.surfaceVariant
                     : Colors.transparent),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(8),
             border: isToday && !isSelected
-                ? Border.all(color: theme.colorScheme.primary, width: 1.2)
+                ? Border.all(color: AppColors.accentPrimary, width: 1.2)
                 : null,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
+              AppText.label(
                 '$_shortDayName ${date.day}',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: isSelected || isToday ? FontWeight.bold : FontWeight.normal,
-                  color: isSelected
-                      ? Colors.white
-                      : (isToday
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurface),
-                ),
+                fontSize: 12,
+                color: isSelected
+                    ? AppColors.background
+                    : (isToday
+                        ? AppColors.accentPrimary
+                        : AppColors.textPrimary),
               ),
             ],
           ),
@@ -742,20 +778,26 @@ class _ActivityTimeBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return InkWell(
       onTap: onTap,
       onLongPress: onLongPress,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: const BorderRadius.horizontal(right: Radius.circular(8)),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: activity.category.color.withValues(alpha: isDark ? 0.25 : 0.18),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: activity.category.color.withValues(alpha: 0.6),
-            width: 1.2,
+          color: AppColors.surfaceVariant,
+          borderRadius: const BorderRadius.only(
+            topRight: Radius.circular(8),
+            bottomRight: Radius.circular(8),
+          ),
+          border: Border(
+            left: BorderSide(
+              color: activity.category.color,
+              width: 3.5,
+            ),
+            top: const BorderSide(color: AppColors.border, width: 0.5),
+            right: const BorderSide(color: AppColors.border, width: 0.5),
+            bottom: const BorderSide(color: AppColors.border, width: 0.5),
           ),
         ),
         child: Column(
@@ -764,46 +806,32 @@ class _ActivityTimeBlock extends StatelessWidget {
           children: [
             Row(
               children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: activity.category.color,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 6),
                 Expanded(
-                  child: Text(
+                  child: AppText.body(
                     activity.title,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      decoration: activity.isCompleted ? TextDecoration.lineThrough : null,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
-                    ),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    decoration: activity.isCompleted ? TextDecoration.lineThrough : null,
+                    color: activity.isCompleted ? AppColors.textMuted : AppColors.textPrimary,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 if (activity.isRecurring) ...[
                   const SizedBox(width: 4),
-                  const Icon(Icons.sync_rounded, size: 12, color: Colors.blueAccent),
+                  const Icon(Icons.sync_rounded, size: 12, color: AppColors.accentPrimary),
                 ],
                 if (activity.isCompleted) ...[
                   const SizedBox(width: 4),
-                  const Icon(Icons.check_circle_rounded, size: 14, color: Colors.green),
+                  const Icon(Icons.check_circle_rounded, size: 13, color: AppColors.jade),
                 ],
               ],
             ),
-            Text(
+            const SizedBox(height: 2),
+            AppText.time(
               activity.timeRangeFormatted,
-              style: TextStyle(
-                fontSize: 10,
-                color: isDark ? Colors.white70 : Colors.black87,
-                fontWeight: FontWeight.w500,
-              ),
-              maxLines: 1,
+              fontSize: 10,
+              color: activity.category.color,
             ),
           ],
         ),

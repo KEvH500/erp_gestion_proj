@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../../models/activity.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/core/app_text.dart';
 import 'daily_report_controller.dart';
 
 /// Vue du rapport quotidien analytique de fin de journée
@@ -10,21 +12,18 @@ class DailyReportView extends GetView<DailyReportController> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
     return Scaffold(
       appBar: AppBar(
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Rapport de Journée', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            Text('Bilan et performance du jour', style: TextStyle(fontSize: 11)),
+            AppText.heading('Rapport de Journée', fontSize: 18),
+            AppText.caption('Bilan et performance du jour'),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.copy_all_rounded),
+            icon: const Icon(Icons.copy_all_rounded, color: AppColors.textPrimary),
             tooltip: 'Copier le résumé',
             onPressed: controller.copyReportToClipboard,
           ),
@@ -47,7 +46,7 @@ class DailyReportView extends GetView<DailyReportController> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(capitalizedDate, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                AppText.heading(capitalizedDate, fontSize: 16),
                 OutlinedButton.icon(
                   onPressed: () async {
                     final picked = await showDatePicker(
@@ -61,7 +60,7 @@ class DailyReportView extends GetView<DailyReportController> {
                     }
                   },
                   icon: const Icon(Icons.calendar_today_rounded, size: 14),
-                  label: const Text('Changer date', style: TextStyle(fontSize: 12)),
+                  label: const AppText.label('Changer date', fontSize: 12),
                   style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
                 ),
               ],
@@ -72,13 +71,9 @@ class DailyReportView extends GetView<DailyReportController> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: isDark
-                      ? [const Color(0xFF1E293B), const Color(0xFF0F172A)]
-                      : [theme.colorScheme.primary.withValues(alpha: 0.1), Colors.white],
-                ),
+                color: AppColors.surface,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                border: Border.all(color: AppColors.border),
               ),
               child: Row(
                 children: [
@@ -86,19 +81,19 @@ class DailyReportView extends GetView<DailyReportController> {
                     width: 70,
                     height: 70,
                     decoration: BoxDecoration(
-                      color: r.score >= 75 ? Colors.green.withValues(alpha: 0.2) : theme.colorScheme.primaryContainer,
+                      color: r.score >= 75
+                          ? AppColors.jade.withValues(alpha: 0.2)
+                          : AppColors.surfaceVariant,
                       shape: BoxShape.circle,
                     ),
                     alignment: Alignment.center,
-                    child: Text(
+                    child: AppText.time(
                       '${r.score}',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                        color: r.score >= 75 ? Colors.green : theme.colorScheme.primary,
-                      ),
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      color: r.score >= 75 ? AppColors.jade : AppColors.accentPrimary,
                     ),
-                  ),
+                  ),   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(
