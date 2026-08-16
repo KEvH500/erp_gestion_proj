@@ -882,6 +882,16 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
   late final GeneratedColumn<DateTime> archivedAt = GeneratedColumn<DateTime>(
       'archived_at', aliasedName, true,
       type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _isLockedMeta =
+      const VerificationMeta('isLocked');
+  @override
+  late final GeneratedColumn<bool> isLocked = GeneratedColumn<bool>(
+      'is_locked', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("is_locked" IN (0, 1))'),
+      defaultValue: const Constant(false));
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -917,6 +927,7 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
         isCompleted,
         isArchived,
         archivedAt,
+        isLocked,
         createdAt,
         updatedAt
       ];
@@ -1022,6 +1033,10 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
           archivedAt.isAcceptableOrUnknown(
               data['archived_at']!, _archivedAtMeta));
     }
+    if (data.containsKey('is_locked')) {
+      context.handle(_isLockedMeta,
+          isLocked.isAcceptableOrUnknown(data['is_locked']!, _isLockedMeta));
+    }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
           createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
@@ -1074,6 +1089,8 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
           .read(DriftSqlType.bool, data['${effectivePrefix}is_archived'])!,
       archivedAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}archived_at']),
+      isLocked: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}is_locked'])!,
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
       updatedAt: attachedDatabase.typeMapping
@@ -1108,6 +1125,7 @@ class Task extends DataClass implements Insertable<Task> {
   final bool isCompleted;
   final bool isArchived;
   final DateTime? archivedAt;
+  final bool isLocked;
   final DateTime createdAt;
   final DateTime updatedAt;
   const Task(
@@ -1128,6 +1146,7 @@ class Task extends DataClass implements Insertable<Task> {
       required this.isCompleted,
       required this.isArchived,
       this.archivedAt,
+      required this.isLocked,
       required this.createdAt,
       required this.updatedAt});
   @override
@@ -1165,6 +1184,7 @@ class Task extends DataClass implements Insertable<Task> {
     if (!nullToAbsent || archivedAt != null) {
       map['archived_at'] = Variable<DateTime>(archivedAt);
     }
+    map['is_locked'] = Variable<bool>(isLocked);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -1201,6 +1221,7 @@ class Task extends DataClass implements Insertable<Task> {
       archivedAt: archivedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(archivedAt),
+      isLocked: Value(isLocked),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -1229,6 +1250,7 @@ class Task extends DataClass implements Insertable<Task> {
       isCompleted: serializer.fromJson<bool>(json['isCompleted']),
       isArchived: serializer.fromJson<bool>(json['isArchived']),
       archivedAt: serializer.fromJson<DateTime?>(json['archivedAt']),
+      isLocked: serializer.fromJson<bool>(json['isLocked']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -1255,6 +1277,7 @@ class Task extends DataClass implements Insertable<Task> {
       'isCompleted': serializer.toJson<bool>(isCompleted),
       'isArchived': serializer.toJson<bool>(isArchived),
       'archivedAt': serializer.toJson<DateTime?>(archivedAt),
+      'isLocked': serializer.toJson<bool>(isLocked),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -1278,6 +1301,7 @@ class Task extends DataClass implements Insertable<Task> {
           bool? isCompleted,
           bool? isArchived,
           Value<DateTime?> archivedAt = const Value.absent(),
+          bool? isLocked,
           DateTime? createdAt,
           DateTime? updatedAt}) =>
       Task(
@@ -1302,6 +1326,7 @@ class Task extends DataClass implements Insertable<Task> {
         isCompleted: isCompleted ?? this.isCompleted,
         isArchived: isArchived ?? this.isArchived,
         archivedAt: archivedAt.present ? archivedAt.value : this.archivedAt,
+        isLocked: isLocked ?? this.isLocked,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
       );
@@ -1334,6 +1359,7 @@ class Task extends DataClass implements Insertable<Task> {
           data.isArchived.present ? data.isArchived.value : this.isArchived,
       archivedAt:
           data.archivedAt.present ? data.archivedAt.value : this.archivedAt,
+      isLocked: data.isLocked.present ? data.isLocked.value : this.isLocked,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -1359,6 +1385,7 @@ class Task extends DataClass implements Insertable<Task> {
           ..write('isCompleted: $isCompleted, ')
           ..write('isArchived: $isArchived, ')
           ..write('archivedAt: $archivedAt, ')
+          ..write('isLocked: $isLocked, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -1384,6 +1411,7 @@ class Task extends DataClass implements Insertable<Task> {
       isCompleted,
       isArchived,
       archivedAt,
+      isLocked,
       createdAt,
       updatedAt);
   @override
@@ -1407,6 +1435,7 @@ class Task extends DataClass implements Insertable<Task> {
           other.isCompleted == this.isCompleted &&
           other.isArchived == this.isArchived &&
           other.archivedAt == this.archivedAt &&
+          other.isLocked == this.isLocked &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -1429,6 +1458,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
   final Value<bool> isCompleted;
   final Value<bool> isArchived;
   final Value<DateTime?> archivedAt;
+  final Value<bool> isLocked;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   const TasksCompanion({
@@ -1449,6 +1479,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     this.isCompleted = const Value.absent(),
     this.isArchived = const Value.absent(),
     this.archivedAt = const Value.absent(),
+    this.isLocked = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   });
@@ -1470,6 +1501,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     this.isCompleted = const Value.absent(),
     this.isArchived = const Value.absent(),
     this.archivedAt = const Value.absent(),
+    this.isLocked = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   })  : title = Value(title),
@@ -1497,6 +1529,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     Expression<bool>? isCompleted,
     Expression<bool>? isArchived,
     Expression<DateTime>? archivedAt,
+    Expression<bool>? isLocked,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
   }) {
@@ -1519,6 +1552,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
       if (isCompleted != null) 'is_completed': isCompleted,
       if (isArchived != null) 'is_archived': isArchived,
       if (archivedAt != null) 'archived_at': archivedAt,
+      if (isLocked != null) 'is_locked': isLocked,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
     });
@@ -1542,6 +1576,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
       Value<bool>? isCompleted,
       Value<bool>? isArchived,
       Value<DateTime?>? archivedAt,
+      Value<bool>? isLocked,
       Value<DateTime>? createdAt,
       Value<DateTime>? updatedAt}) {
     return TasksCompanion(
@@ -1563,6 +1598,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
       isCompleted: isCompleted ?? this.isCompleted,
       isArchived: isArchived ?? this.isArchived,
       archivedAt: archivedAt ?? this.archivedAt,
+      isLocked: isLocked ?? this.isLocked,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -1624,6 +1660,9 @@ class TasksCompanion extends UpdateCompanion<Task> {
     if (archivedAt.present) {
       map['archived_at'] = Variable<DateTime>(archivedAt.value);
     }
+    if (isLocked.present) {
+      map['is_locked'] = Variable<bool>(isLocked.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -1653,6 +1692,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
           ..write('isCompleted: $isCompleted, ')
           ..write('isArchived: $isArchived, ')
           ..write('archivedAt: $archivedAt, ')
+          ..write('isLocked: $isLocked, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -3079,6 +3119,7 @@ typedef $$TasksTableCreateCompanionBuilder = TasksCompanion Function({
   Value<bool> isCompleted,
   Value<bool> isArchived,
   Value<DateTime?> archivedAt,
+  Value<bool> isLocked,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
 });
@@ -3100,6 +3141,7 @@ typedef $$TasksTableUpdateCompanionBuilder = TasksCompanion Function({
   Value<bool> isCompleted,
   Value<bool> isArchived,
   Value<DateTime?> archivedAt,
+  Value<bool> isLocked,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
 });
@@ -3240,6 +3282,9 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
 
   ColumnFilters<DateTime> get archivedAt => $composableBuilder(
       column: $table.archivedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get isLocked => $composableBuilder(
+      column: $table.isLocked, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
@@ -3408,6 +3453,9 @@ class $$TasksTableOrderingComposer
   ColumnOrderings<DateTime> get archivedAt => $composableBuilder(
       column: $table.archivedAt, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<bool> get isLocked => $composableBuilder(
+      column: $table.isLocked, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
 
@@ -3508,6 +3556,9 @@ class $$TasksTableAnnotationComposer
 
   GeneratedColumn<DateTime> get archivedAt => $composableBuilder(
       column: $table.archivedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isLocked =>
+      $composableBuilder(column: $table.isLocked, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -3668,6 +3719,7 @@ class $$TasksTableTableManager extends RootTableManager<
             Value<bool> isCompleted = const Value.absent(),
             Value<bool> isArchived = const Value.absent(),
             Value<DateTime?> archivedAt = const Value.absent(),
+            Value<bool> isLocked = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
           }) =>
@@ -3689,6 +3741,7 @@ class $$TasksTableTableManager extends RootTableManager<
             isCompleted: isCompleted,
             isArchived: isArchived,
             archivedAt: archivedAt,
+            isLocked: isLocked,
             createdAt: createdAt,
             updatedAt: updatedAt,
           ),
@@ -3710,6 +3763,7 @@ class $$TasksTableTableManager extends RootTableManager<
             Value<bool> isCompleted = const Value.absent(),
             Value<bool> isArchived = const Value.absent(),
             Value<DateTime?> archivedAt = const Value.absent(),
+            Value<bool> isLocked = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
           }) =>
@@ -3731,6 +3785,7 @@ class $$TasksTableTableManager extends RootTableManager<
             isCompleted: isCompleted,
             isArchived: isArchived,
             archivedAt: archivedAt,
+            isLocked: isLocked,
             createdAt: createdAt,
             updatedAt: updatedAt,
           ),

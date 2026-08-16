@@ -5,7 +5,10 @@ import 'package:uuid/uuid.dart';
 import '../../data/repositories/activity_repository.dart';
 import '../../models/activity.dart';
 import '../../models/recurrence_exception.dart';
+import '../../services/overlap_checker.dart';
+import '../../theme/app_theme.dart';
 import '../../utils/notification_service.dart';
+import '../../widgets/core/app_text.dart';
 
 /// Modale pour décaler une occurrence d'une tâche récurrente, la détacher ou la supprimer individuellement
 class ShiftOccurrenceModal extends StatefulWidget {
@@ -147,11 +150,31 @@ class _ShiftOccurrenceModalState extends State<ShiftOccurrenceModal> {
   }
 
   Future<void> _applyShift() async {
+    final repo = Get.find<IActivityRepository>();
+    final notifService = Get.find<NotificationService>();
+
+    // Contrôle de non-chevauchement sur la date et créneau cible
+    final allActivities = repo.getAllActivities();
+    final checkResult = OverlapChecker.findOverlaps(
+      targetDate: _selectedDate,
+      startHour: _selectedStartTime.hour,
+      startMinute: _selectedStartTime.minute,
+      endHour: _selectedEndTime.hour,
+      endMinute: _selectedEndTime.minute,
+      isLocked: widget.activity.isLocked,
+      allActivities: allActivities,
+      excludeActivityId: widget.activity.id,
+    );
+
+    if (checkResult.hasBlockingConflicts) {
+      final proceed = await _showShiftConflictDialog(checkResult.blockingConflicts);
+      if (proceed != true) {
+        return;
+      }
+    }
+
     setState(() => _isSaving = true);
     try {
-      final repo = Get.find<IActivityRepository>();
-      final notifService = Get.find<NotificationService>();
-
       final exception = RecurrenceException(
         taskId: widget.activity.id,
         originalDate: widget.occurrenceDate,
@@ -176,14 +199,86 @@ class _ShiftOccurrenceModalState extends State<ShiftOccurrenceModal> {
         'Occurrence décalée',
         'Déplacée au ${_formatDate(_selectedDate)} (${_formatTime(_selectedStartTime)} - ${_formatTime(_selectedEndTime)}). Le reste de la série reste inchangé.',
         snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.blue.shade700,
-        colorText: Colors.white,
+        backgroundColor: AppColors.accentPrimary,
+        colorText: AppColors.background,
         margin: const EdgeInsets.all(16),
         duration: const Duration(seconds: 4),
       );
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  Future<bool?> _showShiftConflictDialog(List<Activity> conflicts) {
+    return Get.dialog<bool>(
+      AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppColors.rubis),
+            SizedBox(width: 8),
+            AppText.heading('Conflit d\'horaires', fontSize: 16),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const AppText.body(
+              'Le créneau sélectionné chevauche les tâches suivantes :',
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
+            const SizedBox(height: 10),
+            ...conflicts.map(
+              (c) => Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceVariant,
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(6),
+                    bottomRight: Radius.circular(6),
+                  ),
+                  border: Border(
+                    left: BorderSide(color: c.category.color, width: 3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: AppText.body(c.title, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    AppText.time(c.timeRangeFormatted, color: c.category.color, fontSize: 11),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            const AppText.caption(
+              'Voulez-vous quand même forcer ce déplacement en dérogeant à la règle de non-chevauchement ?',
+              color: AppColors.textMuted,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: const AppText.label('Modifier l\'horaire', color: AppColors.textPrimary),
+          ),
+          FilledButton(
+            onPressed: () => Get.back(result: true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.accentPrimary,
+              foregroundColor: AppColors.background,
+            ),
+            child: const AppText.label('Déplacer quand même', color: AppColors.background),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _detachAsIndependentTask() async {

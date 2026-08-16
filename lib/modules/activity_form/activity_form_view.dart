@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 import 'package:reactive_forms/reactive_forms.dart';
 import '../../models/activity.dart';
 import '../../models/recurrence_rule.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/core/app_text.dart';
 import '../../widgets/form/app_date_picker_field.dart';
 import '../../widgets/form/app_dropdown_field.dart';
 import '../../widgets/form/app_text_input_field.dart';
@@ -199,6 +201,89 @@ class ActivityFormView extends GetView<ActivityFormController> {
                 }).toList(),
               ),
             ),
+            const SizedBox(height: 24),
+
+            // Section 6 : Verrouillage & Chevauchement
+            _buildSectionHeader(context, 'Règle de chevauchement'),
+            const SizedBox(height: 12),
+
+            ReactiveValueListenableBuilder<bool>(
+              formControlName: 'isLocked',
+              builder: (context, control, child) {
+                final isLocked = control.value ?? false;
+                return Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceVariant,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isLocked ? AppColors.accentPrimary : AppColors.border,
+                      width: isLocked ? 1.5 : 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Row(
+                          children: [
+                            Icon(
+                              isLocked ? Icons.lock_rounded : Icons.lock_open_rounded,
+                              size: 18,
+                              color: isLocked ? AppColors.accentPrimary : AppColors.textSecondary,
+                            ),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: AppText.body(
+                                'Autoriser le chevauchement',
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                        subtitle: const Padding(
+                          padding: EdgeInsets.only(top: 4),
+                          child: AppText.caption(
+                            'Cette tâche pourra coexister sur le même créneau horaire avec d\'autres tâches.',
+                          ),
+                        ),
+                        value: isLocked,
+                        activeColor: AppColors.accentPrimary,
+                        onChanged: (val) => control.value = val,
+                      ),
+                      if (isLocked) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: AppColors.accentPrimary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: AppColors.accentPrimary.withValues(alpha: 0.4),
+                            ),
+                          ),
+                          child: const Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.info_outline_rounded, size: 16, color: AppColors.accentPrimary),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: AppText.caption(
+                                  'Attention : Vous dérogez sciemment à la règle stricte de non-chevauchement des horaires. Aucun avertissement de conflit ne bloquera l\'enregistrement avec une autre tâche.',
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              },
+            ),
             const SizedBox(height: 32),
 
             // Bouton de Sauvegarde
@@ -206,6 +291,8 @@ class ActivityFormView extends GetView<ActivityFormController> {
               () => FilledButton.icon(
                 onPressed: controller.isSaving.value ? null : controller.saveActivity,
                 style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.accentPrimary,
+                  foregroundColor: AppColors.background,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),

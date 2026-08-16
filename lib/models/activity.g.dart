@@ -31,13 +31,14 @@ class ActivityAdapter extends TypeAdapter<Activity> {
       reminderMinutesBefore: fields[11] as int?,
       recurrenceRule: fields[12] as RecurrenceRule?,
       exceptions: (fields[13] as List).cast<RecurrenceException>(),
+      isLocked: fields[14] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, Activity obj) {
     writer
-      ..writeByte(14)
+      ..writeByte(15)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -65,7 +66,9 @@ class ActivityAdapter extends TypeAdapter<Activity> {
       ..writeByte(12)
       ..write(obj.recurrenceRule)
       ..writeByte(13)
-      ..write(obj.exceptions);
+      ..write(obj.exceptions)
+      ..writeByte(14)
+      ..write(obj.isLocked);
   }
 
   @override

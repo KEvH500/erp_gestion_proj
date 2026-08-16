@@ -116,6 +116,9 @@ class Activity extends HiveObject {
   @HiveField(13)
   final List<RecurrenceException> exceptions;
 
+  @HiveField(14)
+  final bool isLocked;
+
   Activity({
     required this.id,
     required this.title,
@@ -131,6 +134,7 @@ class Activity extends HiveObject {
     this.reminderMinutesBefore,
     this.recurrenceRule,
     this.exceptions = const [],
+    this.isLocked = false,
   });
 
   /// Jour de la semaine dérivé (1 = Lundi, 7 = Dimanche)
@@ -202,6 +206,7 @@ class Activity extends HiveObject {
     RecurrenceRule? recurrenceRule,
     bool clearRecurrence = false,
     List<RecurrenceException>? exceptions,
+    bool? isLocked,
   }) {
     return Activity(
       id: id ?? this.id,
@@ -218,12 +223,13 @@ class Activity extends HiveObject {
       reminderMinutesBefore: reminderMinutesBefore ?? this.reminderMinutesBefore,
       recurrenceRule: clearRecurrence ? null : (recurrenceRule ?? this.recurrenceRule),
       exceptions: exceptions ?? this.exceptions,
+      isLocked: isLocked ?? this.isLocked,
     );
   }
 
   @override
   String toString() {
-    return 'Activity(id: $id, title: $title, startDate: $startDate, time: $timeRangeFormatted, category: ${category.name}, isCompleted: $isCompleted, recurring: $isRecurring, exceptions: ${exceptions.length})';
+    return 'Activity(id: $id, title: $title, startDate: $startDate, time: $timeRangeFormatted, category: ${category.name}, isCompleted: $isCompleted, recurring: $isRecurring, exceptions: ${exceptions.length}, isLocked: $isLocked)';
   }
 
   @override
@@ -243,7 +249,8 @@ class Activity extends HiveObject {
         other.location == location &&
         other.reminderMinutesBefore == reminderMinutesBefore &&
         other.recurrenceRule == recurrenceRule &&
-        listEquals(other.exceptions, exceptions);
+        listEquals(other.exceptions, exceptions) &&
+        other.isLocked == isLocked;
   }
 
   @override
@@ -263,6 +270,7 @@ class Activity extends HiveObject {
       reminderMinutesBefore,
       recurrenceRule,
       Object.hashAll(exceptions),
+      isLocked,
     );
   }
 }

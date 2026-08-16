@@ -111,6 +111,11 @@ FormGroup buildTaskForm({
       'recurrenceCount': FormControl<int?>(
         value: existingActivity?.recurrenceRule?.occurrenceCount ?? 10,
       ),
+
+      // Verrouillage / Autorisation de chevauchement
+      'isLocked': FormControl<bool>(
+        value: existingActivity?.isLocked ?? false,
+      ),
     },
     validators: [const TimeOrderValidator()],
   );
