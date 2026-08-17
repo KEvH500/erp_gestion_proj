@@ -8,7 +8,7 @@ class SettingsController extends BaseController {
   static const String settingsBoxName = 'settings_box';
   static const String themeKey = 'theme_mode';
 
-  final themeMode = ThemeMode.system.obs;
+  final themeMode = ThemeMode.dark.obs;
 
   // Données de configuration SQLite réactives
   final allDays = <Map<String, dynamic>>[].obs;
@@ -64,11 +64,11 @@ class SettingsController extends BaseController {
         final index = box.get(themeKey) as int?;
         if (index != null && index >= 0 && index < ThemeMode.values.length) {
           themeMode.value = ThemeMode.values[index];
+          return;
         }
       }
-    } catch (_) {
-      themeMode.value = ThemeMode.system;
-    }
+    } catch (_) {}
+    themeMode.value = ThemeMode.dark;
   }
 
   Future<void> changeThemeMode(ThemeMode mode) async {
@@ -92,6 +92,8 @@ class SettingsController extends BaseController {
 
       final reminders = await configRepo.getAllReminderOptions();
       allReminders.assignAll(reminders);
+    } catch (e) {
+      debugPrint('Erreur chargement config SQLite: $e');
     } finally {
       isLoadingConfig.value = false;
     }

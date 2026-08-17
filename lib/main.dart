@@ -139,9 +139,9 @@ class MyApp extends StatelessWidget {
     return GetMaterialApp(
       title: 'Emploi du temps',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
+      theme: AppTheme.darkTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
+      themeMode: ThemeMode.dark,
       initialRoute: AppRouter.INITIAL,
       initialBinding: InitialBinding(),
       getPages: AppRouter.routes,

@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:reactive_forms/reactive_forms.dart';
 import '../../app/router/app_router.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/core/app_text.dart';
 import '../../widgets/form/app_text_input_field.dart';
 import 'settings_controller.dart';
 
-/// Vue des paramètres avec gestion du thème et configuration dynamique SQLite
+/// Vue des paramètres appliquant la direction visuelle "Cadran de précision" (UI 2026)
 class SettingsView extends GetView<SettingsController> {
   const SettingsView({super.key});
 
@@ -13,11 +15,11 @@ class SettingsView extends GetView<SettingsController> {
     final value = day['value'] as int;
     final form = FormGroup({
       'label': FormControl<String>(
-        value: day['label'] as String,
+        value: day['label'] as String? ?? '',
         validators: [Validators.required, Validators.minLength(1)],
       ),
       'isActive': FormControl<bool>(
-        value: (day['is_active'] as int) == 1,
+        value: day['is_active'] == 1 || day['is_active'] == true,
       ),
     });
 
@@ -25,7 +27,15 @@ class SettingsView extends GetView<SettingsController> {
       ReactiveForm(
         formGroup: form,
         child: AlertDialog(
-          title: Text('Modifier ${day['label']}'),
+          backgroundColor: AppColors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: Row(
+            children: [
+              const Icon(Icons.edit_calendar_rounded, color: AppColors.accentPrimary),
+              const SizedBox(width: 10),
+              AppText.heading('Modifier ${day['label']}', fontSize: 16),
+            ],
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -41,8 +51,9 @@ class SettingsView extends GetView<SettingsController> {
                 builder: (context, control, child) {
                   return SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Activer ce jour'),
+                    title: const AppText.body('Activer ce jour dans la semaine', fontSize: 13),
                     value: control.value ?? true,
+                    activeThumbColor: AppColors.accentPrimary,
                     onChanged: (val) => control.value = val,
                   );
                 },
@@ -52,9 +63,9 @@ class SettingsView extends GetView<SettingsController> {
           actions: [
             TextButton(
               onPressed: () => Get.back(),
-              child: const Text('Annuler'),
+              child: const AppText.label('Annuler', color: AppColors.textPrimary),
             ),
-            ElevatedButton(
+            FilledButton(
               onPressed: () {
                 if (form.valid) {
                   final newLabel = (form.control('label').value as String).trim();
@@ -65,7 +76,11 @@ class SettingsView extends GetView<SettingsController> {
                   form.markAllAsTouched();
                 }
               },
-              child: const Text('Enregistrer'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.accentPrimary,
+                foregroundColor: AppColors.background,
+              ),
+              child: const AppText.label('Enregistrer', color: AppColors.background),
             ),
           ],
         ),
@@ -85,7 +100,7 @@ class SettingsView extends GetView<SettingsController> {
       ),
     });
 
-    // Écouter les changements de minutes pour pré-remplir intelligemment le libellé
+    // Pré-remplissage intelligent du libellé selon les minutes
     form.control('minutes').valueChanges.listen((val) {
       final m = int.tryParse((val as String?)?.trim() ?? '');
       final currentLabel = form.control('label').value as String? ?? '';
@@ -105,14 +120,22 @@ class SettingsView extends GetView<SettingsController> {
       ReactiveForm(
         formGroup: form,
         child: AlertDialog(
-          title: const Text('Ajouter un rappel (SQLite)'),
+          backgroundColor: AppColors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: const Row(
+            children: [
+              Icon(Icons.add_alarm_rounded, color: AppColors.accentPrimary),
+              SizedBox(width: 10),
+              AppText.heading('Nouveau preset de rappel', fontSize: 16),
+            ],
+          ),
           content: const Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               AppTextInputField(
                 formControlName: 'minutes',
-                label: 'Minutes avant',
-                hint: 'Ex: 20, 45, 90...',
+                label: 'Délai (minutes avant)',
+                hint: 'Ex: 1, 15, 30, 90...',
                 prefixIcon: Icons.timer_outlined,
                 keyboardType: TextInputType.number,
                 isRequired: true,
@@ -121,7 +144,7 @@ class SettingsView extends GetView<SettingsController> {
               AppTextInputField(
                 formControlName: 'label',
                 label: 'Libellé affiché',
-                hint: 'Ex: 20 minutes avant',
+                hint: 'Ex: 1 minute avant',
                 prefixIcon: Icons.label_outline_rounded,
                 isRequired: true,
               ),
@@ -130,9 +153,9 @@ class SettingsView extends GetView<SettingsController> {
           actions: [
             TextButton(
               onPressed: () => Get.back(),
-              child: const Text('Annuler'),
+              child: const AppText.label('Annuler', color: AppColors.textPrimary),
             ),
-            ElevatedButton(
+            FilledButton(
               onPressed: () {
                 if (form.valid) {
                   final m = int.tryParse((form.control('minutes').value as String).trim());
@@ -145,7 +168,11 @@ class SettingsView extends GetView<SettingsController> {
                   form.markAllAsTouched();
                 }
               },
-              child: const Text('Ajouter'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.accentPrimary,
+                foregroundColor: AppColors.background,
+              ),
+              child: const AppText.label('Ajouter', color: AppColors.background),
             ),
           ],
         ),
@@ -155,455 +182,452 @@ class SettingsView extends GetView<SettingsController> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text(
-          'Paramètres',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AppText.heading('Paramètres', fontSize: 18),
+            AppText.caption('Configuration & Direction Visuelle 2026'),
+          ],
         ),
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         children: [
-          // Section 1 : Apparence & Thème
-          _buildSectionHeader(context, 'Apparence', Icons.palette_outlined),
+          // Section 1 : Direction Visuelle & Thème
+          _buildSectionHeader('Direction Visuelle', Icons.palette_outlined),
           const SizedBox(height: 10),
-          Card(
-            margin: EdgeInsets.zero,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Mode d\'affichage',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Choisissez entre le thème clair, sombre ou l\'adaptation automatique.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Obx(
-                    () => SegmentedButton<ThemeMode>(
-                      segments: const [
-                        ButtonSegment<ThemeMode>(
-                          value: ThemeMode.system,
-                          icon: Icon(Icons.brightness_auto_rounded),
-                          label: Text('Système'),
-                        ),
-                        ButtonSegment<ThemeMode>(
-                          value: ThemeMode.light,
-                          icon: Icon(Icons.light_mode_rounded),
-                          label: Text('Clair'),
-                        ),
-                        ButtonSegment<ThemeMode>(
-                          value: ThemeMode.dark,
-                          icon: Icon(Icons.dark_mode_rounded),
-                          label: Text('Sombre'),
-                        ),
-                      ],
-                      selected: {controller.themeMode.value},
-                      onSelectionChanged: (Set<ThemeMode> newSelection) {
-                        controller.changeThemeMode(newSelection.first);
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 28),
-
-          // Section 2 : Configuration des Jours (SQLite)
-          _buildSectionHeader(
-              context, 'Jours de la semaine (SQLite)', Icons.calendar_view_week_rounded),
-          const SizedBox(height: 10),
-          Card(
-            margin: EdgeInsets.zero,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Jours configurés',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Personnalisez le libellé des jours ou activez/désactivez des jours selon vos préférences.',
-                    style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
-                  ),
-                  const SizedBox(height: 12),
-                  Obx(
-                    () => controller.allDays.isEmpty
-                        ? const Center(child: CircularProgressIndicator())
-                        : Column(
-                            children: controller.allDays.map((day) {
-                              final isActive = (day['is_active'] as int) == 1;
-                              return ListTile(
-                                dense: true,
-                                contentPadding: EdgeInsets.zero,
-                                leading: CircleAvatar(
-                                  radius: 14,
-                                  backgroundColor: isActive
-                                      ? theme.colorScheme.primaryContainer
-                                      : (isDark ? Colors.grey[800] : Colors.grey[300]),
-                                  child: Text(
-                                    '${day["value"]}',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: isActive ? theme.colorScheme.primary : Colors.grey,
-                                    ),
-                                  ),
-                                ),
-                                title: Text(
-                                  day['label'] as String,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    decoration: isActive ? null : TextDecoration.lineThrough,
-                                    color: isActive ? null : Colors.grey,
-                                  ),
-                                ),
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.edit_outlined, size: 18),
-                                  tooltip: 'Modifier',
-                                  onPressed: () => _showEditDayDialog(context, day),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 28),
-
-          // Section 3 : Configuration des Rappels (SQLite)
-          _buildSectionHeader(
-              context, 'Options de rappel (SQLite)', Icons.notifications_active_outlined),
-          const SizedBox(height: 10),
-          Card(
-            margin: EdgeInsets.zero,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'Presets de rappels',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                        ),
+          _buildCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.watch_later_outlined, color: AppColors.accentPrimary, size: 20),
+                    SizedBox(width: 8),
+                    AppText.heading('Cadran de précision', fontSize: 15),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                const AppText.body(
+                  'Thème sombre anthracite chaud (#14151A), typographie éditoriale Fraunces, repères dorés et palette pierres précieuses.',
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+                const SizedBox(height: 16),
+                Obx(
+                  () => SegmentedButton<ThemeMode>(
+                    style: ButtonStyle(
+                      backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+                        if (states.contains(WidgetState.selected)) {
+                          return AppColors.accentPrimary.withValues(alpha: 0.2);
+                        }
+                        return AppColors.surfaceVariant;
+                      }),
+                      foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+                        if (states.contains(WidgetState.selected)) {
+                          return AppColors.accentPrimary;
+                        }
+                        return AppColors.textSecondary;
+                      }),
+                      side: WidgetStateProperty.all(
+                        const BorderSide(color: AppColors.border, width: 0.8),
                       ),
-                      FilledButton.tonalIcon(
-                        onPressed: () => _showAddReminderDialog(context),
-                        icon: const Icon(Icons.add_rounded, size: 16),
-                        label: const Text('Ajouter', style: TextStyle(fontSize: 12)),
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          visualDensity: VisualDensity.compact,
-                        ),
+                    ),
+                    segments: const [
+                      ButtonSegment<ThemeMode>(
+                        value: ThemeMode.dark,
+                        icon: Icon(Icons.dark_mode_rounded),
+                        label: Text('Sombre (2026)'),
+                      ),
+                      ButtonSegment<ThemeMode>(
+                        value: ThemeMode.system,
+                        icon: Icon(Icons.brightness_auto_rounded),
+                        label: Text('Système'),
+                      ),
+                      ButtonSegment<ThemeMode>(
+                        value: ThemeMode.light,
+                        icon: Icon(Icons.light_mode_rounded),
+                        label: Text('Clair'),
                       ),
                     ],
+                    selected: {controller.themeMode.value},
+                    onSelectionChanged: (Set<ThemeMode> newSelection) {
+                      controller.changeThemeMode(newSelection.first);
+                    },
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Définissez les options de rappel proposées lors de la création d\'activité.',
-                    style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
-                  ),
-                  const SizedBox(height: 12),
-                  Obx(
-                    () => Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: controller.allReminders.map((rem) {
-                        final isDefault = rem['is_default'] as bool;
-                        final minutesRaw = rem['minutes_raw'] as int;
-
-                        return Chip(
-                          label: Text(rem['label'] as String, style: const TextStyle(fontSize: 12)),
-                          backgroundColor:
-                              isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
-                          deleteIcon: isDefault ? null : const Icon(Icons.close_rounded, size: 16),
-                          onDeleted: isDefault ? null : () => controller.deleteReminder(minutesRaw),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton.icon(
-                    onPressed: controller.resetSqliteDefaults,
-                    icon: const Icon(Icons.restore_rounded, size: 16),
-                    label: const Text('Restaurer configurations d\'usine',
-                        style: TextStyle(fontSize: 12)),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
 
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
+
+          // Section 2 : Configuration des Jours (SQLite)
+          _buildSectionHeader('Jours de la semaine (SQLite)', Icons.calendar_view_week_rounded),
+          const SizedBox(height: 10),
+          _buildCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const AppText.heading('Jours configurés', fontSize: 14),
+                const SizedBox(height: 4),
+                const AppText.body(
+                  'Personnalisez le libellé des jours ou activez/désactivez des jours selon vos préférences.',
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+                const SizedBox(height: 12),
+                Obx(() {
+                  if (controller.isLoadingConfig.value) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                  }
+                  if (controller.allDays.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: AppText.caption('Aucun jour configuré'),
+                    );
+                  }
+                  return Column(
+                    children: controller.allDays.map((day) {
+                      final isActive = day['is_active'] == 1 || day['is_active'] == true;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceVariant,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.border, width: 0.5),
+                        ),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 12,
+                              backgroundColor: isActive
+                                  ? AppColors.accentPrimary.withValues(alpha: 0.2)
+                                  : AppColors.border,
+                              child: AppText.time(
+                                '${day["value"]}',
+                                fontSize: 10,
+                                color: isActive ? AppColors.accentPrimary : AppColors.textMuted,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: AppText.body(
+                                day['label'] as String? ?? '',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: isActive ? AppColors.textPrimary : AppColors.textMuted,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.textSecondary),
+                              tooltip: 'Modifier',
+                              onPressed: () => _showEditDayDialog(context, day),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  );
+                }),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Section 3 : Configuration des Rappels (SQLite)
+          _buildSectionHeader('Options de rappel (SQLite)', Icons.notifications_active_outlined),
+          const SizedBox(height: 10),
+          _buildCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Expanded(
+                      child: AppText.heading('Presets de rappels', fontSize: 14),
+                    ),
+                    FilledButton.tonalIcon(
+                      onPressed: () => _showAddReminderDialog(context),
+                      icon: const Icon(Icons.add_rounded, size: 16),
+                      label: const AppText.label('Ajouter', fontSize: 11),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.accentPrimary.withValues(alpha: 0.15),
+                        foregroundColor: AppColors.accentPrimary,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                const AppText.body(
+                  'Définissez les options de rappel proposées lors de la création d\'activité.',
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+                const SizedBox(height: 12),
+                Obx(
+                  () => Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: controller.allReminders.map((rem) {
+                      final isDefault = rem['is_default'] == true || rem['is_default'] == 1;
+                      final minutesRaw = (rem['minutes_raw'] ?? rem['value'] ?? 0) as int;
+
+                      return Chip(
+                        label: AppText.label(
+                          rem['label'] as String? ?? '$minutesRaw min',
+                          fontSize: 11,
+                          color: AppColors.textPrimary,
+                        ),
+                        backgroundColor: AppColors.surfaceVariant,
+                        side: const BorderSide(color: AppColors.border, width: 0.5),
+                        deleteIcon: isDefault
+                            ? null
+                            : const Icon(Icons.close_rounded, size: 14, color: AppColors.rubis),
+                        onDeleted: isDefault ? null : () => controller.deleteReminder(minutesRaw),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                OutlinedButton.icon(
+                  onPressed: controller.resetSqliteDefaults,
+                  icon: const Icon(Icons.restore_rounded, size: 16, color: AppColors.textSecondary),
+                  label: const AppText.label('Restaurer configurations d\'usine', color: AppColors.textSecondary, fontSize: 12),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppColors.border),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
 
           // Section 4 : Fiabilité des alarmes & Arrière-plan
-          _buildSectionHeader(
-              context, 'Fiabilité des alarmes & Arrière-plan', Icons.alarm_on_rounded),
+          _buildSectionHeader('Fiabilité des alarmes & Arrière-plan', Icons.alarm_on_rounded),
           const SizedBox(height: 10),
-          Card(
-            margin: EdgeInsets.zero,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Précision à la minute exacte & Mode Veille (Doze)',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Sur Android 12+, des autorisations spécifiques garantissent que vos alarmes sonnent précisément à l\'heure même lorsque l\'écran est éteint.',
-                    style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
-                  ),
-                  const SizedBox(height: 16),
+          _buildCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const AppText.heading('Précision à la minute & Mode Doze', fontSize: 14),
+                const SizedBox(height: 4),
+                const AppText.body(
+                  'Garantit que vos rappels se déclenchent avec exactitude même lorsque l\'écran est éteint.',
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+                const SizedBox(height: 14),
 
-                  // 1. Statut Alarme Exacte (SCHEDULE_EXACT_ALARM)
-                  Obx(
-                    () => ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(
-                        controller.exactAlarmGranted.value
-                            ? Icons.check_circle_rounded
-                            : Icons.warning_amber_rounded,
-                        color: controller.exactAlarmGranted.value
-                            ? Colors.green
-                            : Colors.orange,
-                      ),
-                      title: const Text(
-                        'Alarmes exactes (Android 12+)',
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                      ),
-                      subtitle: Text(
-                        controller.exactAlarmGranted.value
-                            ? 'Autorisé : Déclenchement garanti à la minute exacte.'
-                            : 'Non autorisé : Vos alarmes risquent d\'être retardées.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      trailing: controller.exactAlarmGranted.value
-                          ? null
-                          : FilledButton.tonal(
-                              onPressed: controller.requestExactAlarms,
-                              child: const Text('Autoriser', style: TextStyle(fontSize: 11)),
-                            ),
+                // 1. Alarmes Exactes
+                Obx(
+                  () => ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      controller.exactAlarmGranted.value
+                          ? Icons.check_circle_rounded
+                          : Icons.warning_amber_rounded,
+                      color: controller.exactAlarmGranted.value ? AppColors.jade : AppColors.topaze,
                     ),
-                  ),
-                  const Divider(),
-
-                  // 2. Statut Optimisation de Batterie
-                  Obx(
-                    () => ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(
-                        controller.batteryOptimizationIgnored.value
-                            ? Icons.battery_charging_full_rounded
-                            : Icons.battery_alert_rounded,
-                        color: controller.batteryOptimizationIgnored.value
-                            ? Colors.green
-                            : Colors.orange,
-                      ),
-                      title: const Text(
-                        'Exemption d\'optimisation batterie',
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                      ),
-                      subtitle: Text(
-                        controller.batteryOptimizationIgnored.value
-                            ? 'Exemptée : Le système ne suspendra pas les alarmes.'
-                            : 'Recommandé : Évite que le mode Doze n\'endorme les rappels.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      trailing: controller.batteryOptimizationIgnored.value
-                          ? null
-                          : FilledButton.tonal(
-                              onPressed: controller.requestIgnoreBatteryOptimizations,
-                              child: const Text('Exempter', style: TextStyle(fontSize: 11)),
-                            ),
+                    title: const AppText.body('Alarmes exactes (Android 12+)', fontWeight: FontWeight.bold, fontSize: 13),
+                    subtitle: AppText.caption(
+                      controller.exactAlarmGranted.value
+                          ? 'Autorisé : Déclenchement garanti à la minute exacte.'
+                          : 'Non autorisé : Vos alarmes risquent d\'être retardées.',
+                      color: AppColors.textSecondary,
                     ),
+                    trailing: controller.exactAlarmGranted.value
+                        ? null
+                        : FilledButton.tonal(
+                            onPressed: controller.requestExactAlarms,
+                            child: const AppText.label('Autoriser', fontSize: 11),
+                          ),
                   ),
-                  const SizedBox(height: 12),
+                ),
+                const Divider(color: AppColors.border),
 
-                  // 3. Bouton Replanification manuelle de la fenêtre glissante
-                  OutlinedButton.icon(
+                // 2. Optimisation Batterie
+                Obx(
+                  () => ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      controller.batteryOptimizationIgnored.value
+                          ? Icons.battery_charging_full_rounded
+                          : Icons.battery_alert_rounded,
+                      color: controller.batteryOptimizationIgnored.value ? AppColors.jade : AppColors.topaze,
+                    ),
+                    title: const AppText.body('Exemption optimisation batterie', fontWeight: FontWeight.bold, fontSize: 13),
+                    subtitle: AppText.caption(
+                      controller.batteryOptimizationIgnored.value
+                          ? 'Exemptée : Le système ne suspendra pas les alarmes.'
+                          : 'Recommandé : Évite que le mode Doze n\'endorme les rappels.',
+                      color: AppColors.textSecondary,
+                    ),
+                    trailing: controller.batteryOptimizationIgnored.value
+                        ? null
+                        : FilledButton.tonal(
+                            onPressed: controller.requestIgnoreBatteryOptimizations,
+                            child: const AppText.label('Exempter', fontSize: 11),
+                          ),
+                  ),
+                ),
+                const Divider(color: AppColors.border),
+
+                // 3. Replanification manuelle
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.sync_rounded, color: AppColors.accentPrimary),
+                  title: const AppText.body('Forcer la replanification (30 jours)', fontWeight: FontWeight.bold, fontSize: 13),
+                  subtitle: const AppText.caption(
+                    'Recalcule toutes les alarmes des tâches récurrentes et ponctuelles immédiatement.',
+                    color: AppColors.textSecondary,
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.refresh_rounded, color: AppColors.accentPrimary),
                     onPressed: controller.rescheduleAllNotificationsNow,
-                    icon: const Icon(Icons.sync_rounded, size: 16),
-                    label: const Text(
-                      'Replanifier la fenêtre glissante (30 jours)',
-                      style: TextStyle(fontSize: 12),
-                    ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
 
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
 
           // Section 5 : Export & Partage
-          _buildSectionHeader(context, 'Export & Données', Icons.ios_share_rounded),
+          _buildSectionHeader('Export & Données', Icons.ios_share_rounded),
           const SizedBox(height: 10),
-          Card(
-            margin: EdgeInsets.zero,
+          _buildCard(
             child: ListTile(
-              leading: const Icon(Icons.file_download_outlined, color: Colors.blueAccent),
-              title: const Text('Export hebdomadaire (CSV)', style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: const Text('Prévisualiser et exporter les tâches et horaires de n\'importe quelle semaine.'),
-              trailing: const Icon(Icons.chevron_right_rounded),
+              contentPadding: EdgeInsets.zero,
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.saphir.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.file_download_outlined, color: AppColors.saphir, size: 20),
+              ),
+              title: const AppText.body('Export hebdomadaire (CSV)', fontWeight: FontWeight.bold, fontSize: 13),
+              subtitle: const AppText.caption(
+                'Prévisualiser, filtrer et exporter l\'ensemble des tâches et créneaux horaires d\'une semaine.',
+                color: AppColors.textSecondary,
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
               onTap: () => Get.toNamed(Routes.EXPORT),
             ),
           ),
 
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
 
           // Section 6 : À propos
-          _buildSectionHeader(context, 'À propos', Icons.info_outline_rounded),
+          _buildSectionHeader('À propos', Icons.info_outline_rounded),
           const SizedBox(height: 10),
-          Card(
-            margin: EdgeInsets.zero,
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.calendar_month_rounded,
-                      size: 48,
-                      color: theme.colorScheme.primary,
-                    ),
+          _buildCard(
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentPrimary.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Emploi du Temps',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                    ),
+                  child: const Icon(
+                    Icons.calendar_month_rounded,
+                    size: 36,
+                    color: AppColors.accentPrimary,
                   ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'Version 1.0.0',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: theme.colorScheme.primary,
-                      ),
-                    ),
+                ),
+                const SizedBox(height: 12),
+                const AppText.heading('Emploi du Temps', fontSize: 18),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentPrimary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.accentPrimary.withValues(alpha: 0.3)),
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Votre compagnon quotidien pour structurer vos journées du lundi au dimanche, optimiser votre temps et rester ordonné en toute sérénité.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      height: 1.5,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                  child: const AppText.label(
+                    'Cadran de précision • UI 2026',
+                    fontSize: 11,
+                    color: AppColors.accentPrimary,
                   ),
-                  const SizedBox(height: 20),
-                  const Divider(),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Architecture',
-                          style: TextStyle(
-                              fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
-                      const Text('Flutter & GetX (MVC)',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Stockage Données',
-                          style: TextStyle(
-                              fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
-                      const Text('Drift & SQLite (Type-Safe)',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Formulaires',
-                          style: TextStyle(
-                              fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
-                      const Text('reactive_forms (FormGroup)',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 14),
+                const AppText.body(
+                  'Gestion d\'emploi du temps hebdomadaire avec non-chevauchement, récurrence complète, notifications à la minute exacte et export CSV.',
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+                const SizedBox(height: 16),
+                const Divider(color: AppColors.border),
+                const SizedBox(height: 10),
+                _buildInfoRow('Architecture', 'Flutter & GetX (MVC)'),
+                const SizedBox(height: 6),
+                _buildInfoRow('Stockage Type-Safe', 'Drift (v4) + Hive'),
+                const SizedBox(height: 6),
+                _buildInfoRow('Configuration Dynamique', 'SQLite (sqflite)'),
+                const SizedBox(height: 6),
+                _buildInfoRow('Typographie', 'Fraunces / Inter / IBM Plex Mono'),
+              ],
             ),
           ),
+          const SizedBox(height: 30),
         ],
       ),
     );
   }
 
-  Widget _buildSectionHeader(BuildContext context, String title, IconData icon) {
-    final theme = Theme.of(context);
+  Widget _buildCard({required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border, width: 0.8),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildSectionHeader(String title, IconData icon) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: theme.colorScheme.primary),
+        Icon(icon, size: 16, color: AppColors.accentPrimary),
         const SizedBox(width: 8),
-        Text(
+        AppText.label(
           title.toUpperCase(),
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.8,
-            color: theme.colorScheme.primary,
-          ),
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          color: AppColors.accentPrimary,
         ),
+      ],
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        AppText.caption(label, color: AppColors.textSecondary),
+        AppText.label(value, fontSize: 11, color: AppColors.textPrimary),
       ],
     );
   }

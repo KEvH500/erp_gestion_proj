@@ -13,14 +13,12 @@ class DayView extends GetView<DayController> {
   const DayView({super.key});
 
   void _showAddChoicesModal(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
     Get.bottomSheet(
       Container(
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E293B) : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border(top: BorderSide(color: AppColors.border, width: 1)),
         ),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
         child: SafeArea(
@@ -33,19 +31,16 @@ class DayView extends GetView<DayController> {
                   width: 36,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: isDark ? Colors.grey[700] : Colors.grey[300],
+                    color: AppColors.border,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
               Obx(
-                () => Text(
+                () => AppText.heading(
                   'Ajouter pour ${controller.dayName}',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  fontSize: 18,
                 ),
               ),
               const SizedBox(height: 16),
@@ -60,57 +55,49 @@ class DayView extends GetView<DayController> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.amber.withValues(alpha: isDark ? 0.15 : 0.1),
+                    color: AppColors.surfaceVariant,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                    border: Border.all(color: AppColors.topaze.withValues(alpha: 0.4)),
                   ),
                   child: Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.amber.withValues(alpha: 0.2),
+                          color: AppColors.topaze.withValues(alpha: 0.18),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.bolt_rounded, color: Colors.amber, size: 24),
+                        child: const Icon(Icons.bolt_rounded, color: AppColors.topaze, size: 24),
                       ),
                       const SizedBox(width: 14),
-                      Expanded(
+                      const Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Row(
+                            Row(
                               children: [
-                                Text(
+                                AppText.heading(
                                   'Tâche Imprévue / Rapide',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                  ),
+                                  fontSize: 15,
                                 ),
                                 SizedBox(width: 6),
-                                Text(
+                                AppText.label(
                                   '⚡ FLASH',
-                                  style: TextStyle(
-                                    color: Colors.orange,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 10,
-                                  ),
+                                  color: AppColors.topaze,
+                                  fontSize: 10,
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 2),
-                            Text(
+                            SizedBox(height: 2),
+                            AppText.body(
                               'Sans heure fixe. Saisissez une to-do urgente.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
                             ),
                           ],
                         ),
                       ),
-                      const Icon(Icons.chevron_right_rounded),
+                      const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
                     ],
                   ),
                 ),
@@ -126,10 +113,10 @@ class DayView extends GetView<DayController> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: isDark ? 0.15 : 0.08),
+                    color: AppColors.surfaceVariant,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                      color: AppColors.saphir.withValues(alpha: 0.4),
                     ),
                   ),
                   child: Row(
@@ -137,39 +124,44 @@ class DayView extends GetView<DayController> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                          color: AppColors.saphir.withValues(alpha: 0.18),
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(
-                          Icons.calendar_month_rounded,
-                          color: theme.colorScheme.primary,
+                        child: const Icon(
+                          Icons.event_available_rounded,
+                          color: AppColors.saphir,
                           size: 24,
                         ),
                       ),
                       const SizedBox(width: 14),
-                      Expanded(
+                      const Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Activité Planifiée',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
+                            Row(
+                              children: [
+                                AppText.heading(
+                                  'Activité Planifiée',
+                                  fontSize: 15,
+                                ),
+                                SizedBox(width: 6),
+                                AppText.label(
+                                  '🕒 HORAIRE',
+                                  color: AppColors.saphir,
+                                  fontSize: 10,
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Créneau horaire avec début et fin précis.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
+                            SizedBox(height: 2),
+                            AppText.body(
+                              'Avec plage horaire définie (ex: 08:00 - 10:00).',
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
                             ),
                           ],
                         ),
                       ),
-                      const Icon(Icons.chevron_right_rounded),
+                      const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
                     ],
                   ),
                 ),
@@ -249,12 +241,13 @@ class DayView extends GetView<DayController> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                    color: AppColors.surfaceVariant,
                     borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border, width: 0.5),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.sync_rounded, size: 16, color: Colors.blueAccent),
+                      const Icon(Icons.sync_rounded, size: 16, color: AppColors.saphir),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
