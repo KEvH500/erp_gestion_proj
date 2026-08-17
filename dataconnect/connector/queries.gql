@@ -1,0 +1,30 @@
+# Requêtes pour récupérer les données de réplication de Weekora
+
+query getActivities {
+  activities {
+    id
+    title
+    description
+    startDate
+    startHour
+    startMinute
+    endHour
+    endMinute
+    category
+    isCompleted
+    isLocked
+  }
+}
+
+query getUnplannedTasks {
+  unplannedTasks {
+    id
+    title
+    description
+    priority
+    isCompleted
+    date
+    estimatedMinutes
+    createdAt
+  }
+}

@@ -165,6 +165,7 @@ class ActivityFormController extends BaseController {
       final occurrenceDates = RecurrenceEngine.generateOccurrences(
         startDate: startDate,
         rule: recurrenceRule,
+        exceptions: existingActivity?.exceptions ?? const [],
         fromDate: startDate,
         toDate: startDate.add(const Duration(days: 35)),
       );

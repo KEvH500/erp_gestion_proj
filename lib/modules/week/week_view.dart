@@ -190,7 +190,7 @@ class WeekView extends GetView<WeekController> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Emploi du temps',
+              'Weekora',
               style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20),
             ),
             Obx(

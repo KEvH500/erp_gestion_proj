@@ -1,0 +1,51 @@
+# Mutations pour la réplication et la synchronisation des données de Weekora
+
+mutation upsertActivity(
+  $id: String!,
+  $title: String!,
+  $description: String,
+  $startDate: Date!,
+  $startHour: Int!,
+  $startMinute: Int!,
+  $endHour: Int!,
+  $endMinute: Int!,
+  $category: String!,
+  $isCompleted: Boolean!,
+  $isLocked: Boolean!
+) {
+  activity_upsert(data: {
+    id: $id,
+    title: $title,
+    description: $description,
+    startDate: $startDate,
+    startHour: $startHour,
+    startMinute: $startMinute,
+    endHour: $endHour,
+    endMinute: $endMinute,
+    category: $category,
+    isCompleted: $isCompleted,
+    isLocked: $isLocked
+  })
+}
+
+mutation upsertUnplannedTask(
+  $id: String!,
+  $title: String!,
+  $description: String,
+  $priority: String!,
+  $isCompleted: Boolean!,
+  $date: Date!,
+  $estimatedMinutes: Int,
+  $createdAt: Timestamp
+) {
+  unplannedTask_upsert(data: {
+    id: $id,
+    title: $title,
+    description: $description,
+    priority: $priority,
+    isCompleted: $isCompleted,
+    date: $date,
+    estimatedMinutes: $estimatedMinutes,
+    createdAt: $createdAt
+  })
+}

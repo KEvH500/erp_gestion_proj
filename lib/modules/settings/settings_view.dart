@@ -596,14 +596,18 @@ class SettingsView extends GetView<SettingsController> {
   }
 
   Widget _buildCard({required Widget child}) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border, width: 0.8),
+        side: const BorderSide(color: AppColors.border, width: 0.8),
       ),
-      child: child,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: child,
+      ),
     );
   }
 

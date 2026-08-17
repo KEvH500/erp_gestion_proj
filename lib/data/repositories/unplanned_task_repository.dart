@@ -1,5 +1,7 @@
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:get/get.dart';
 import '../../models/unplanned_task.dart';
+import '../../services/sync_service.dart';
 
 abstract class IUnplannedTaskRepository {
   List<UnplannedTask> getAllTasks();
@@ -54,11 +56,19 @@ class UnplannedTaskRepository implements IUnplannedTaskRepository {
   @override
   Future<void> addTask(UnplannedTask task) async {
     await _box.put(task.id, task);
+    if (Get.isRegistered<SyncService>()) {
+      SyncService.to.setSynced(task.id, false);
+      SyncService.to.syncAll(activities: [], tasks: [task]);
+    }
   }
 
   @override
   Future<void> updateTask(UnplannedTask task) async {
     await _box.put(task.id, task);
+    if (Get.isRegistered<SyncService>()) {
+      SyncService.to.setSynced(task.id, false);
+      SyncService.to.syncAll(activities: [], tasks: [task]);
+    }
   }
 
   @override
@@ -77,6 +87,10 @@ class UnplannedTaskRepository implements IUnplannedTaskRepository {
     if (task != null) {
       final updated = task.copyWith(isCompleted: !task.isCompleted);
       await _box.put(id, updated);
+      if (Get.isRegistered<SyncService>()) {
+        SyncService.to.setSynced(id, false);
+        SyncService.to.syncAll(activities: [], tasks: [updated]);
+      }
     }
   }
 

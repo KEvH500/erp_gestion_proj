@@ -1,7 +1,9 @@
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:get/get.dart';
 import '../../models/activity.dart';
 import '../../models/recurrence_exception.dart';
 import '../../services/recurrence_engine.dart';
+import '../../services/sync_service.dart';
 
 abstract class IActivityRepository {
   List<Activity> getAllActivities();
@@ -72,11 +74,19 @@ class ActivityRepository implements IActivityRepository {
   @override
   Future<void> addActivity(Activity activity) async {
     await _box.put(activity.id, activity);
+    if (Get.isRegistered<SyncService>()) {
+      SyncService.to.setSynced(activity.id, false);
+      SyncService.to.syncAll(activities: [activity], tasks: []);
+    }
   }
 
   @override
   Future<void> updateActivity(Activity activity) async {
     await _box.put(activity.id, activity);
+    if (Get.isRegistered<SyncService>()) {
+      SyncService.to.setSynced(activity.id, false);
+      SyncService.to.syncAll(activities: [activity], tasks: []);
+    }
   }
 
   @override
@@ -95,6 +105,10 @@ class ActivityRepository implements IActivityRepository {
     if (activity != null) {
       final updated = activity.copyWith(isCompleted: !activity.isCompleted);
       await _box.put(id, updated);
+      if (Get.isRegistered<SyncService>()) {
+        SyncService.to.setSynced(id, false);
+        SyncService.to.syncAll(activities: [updated], tasks: []);
+      }
     }
   }
 
